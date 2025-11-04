@@ -14,5 +14,5 @@ if (document.getElementById("topBar")) {
     osBox.addEventListener("mouseleave", () => osImg.style.opacity = 0.5);
 
     // Open Creature Application onclick (once converted)
-
+    
 }

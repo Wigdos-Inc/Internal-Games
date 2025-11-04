@@ -165,14 +165,14 @@ if (typeof gridSquareArray === "undefined") {
 
 function preload() {
 
-    bombs.name.forEach(bomb => bombs.image.push(loadImage(`assets/images/games/sublimator/bombs/${bomb.toLowerCase()}.png`)));
-    boom = loadImage("assets/images/games/sublimator/boom.png");
+    bombs.name.forEach(bomb => bombs.image.push(loadImage(`assets/images/bombs/${bomb.toLowerCase()}.png`)));
+    boom = loadImage("assets/images/boom.png");
 }
 
 function setup() {
 
     // Load Game Font
-    let gameFont = loadFont("assets/fonts/sci-fi/orbitron.ttf");
+    let gameFont = loadFont("assets/fonts/orbitron.ttf");
     textFont(gameFont);
 
     // Create canvas
