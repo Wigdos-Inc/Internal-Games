@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quizzy WiggleWagers - FuzzyExplosions</title>
+
+    <base href="../../">
+    <link rel="stylesheet" href="styles/global/main.css">
+    <link rel="stylesheet" href="styles/apps/appContent.css">
+    
+    <link rel="stylesheet" href="styles/apps/bombs/c4.css">
+</head>
+<body>
+    <div id="appMain">
+        <img src="assets/images/games/bombs/c4.png" id="bombus">
+
+        <div id="numberBox">
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+            <div class="digits"></div>
+        </div>
+
+        <div id="buttonBox">
+            <div class="buttons"><strong>1</strong></div>
+            <div class="buttons"><strong>2</strong></div>
+            <div class="buttons"><strong>3</strong></div>
+            <div class="buttons"><strong>4</strong></div>
+            <div class="buttons"><strong>5</strong></div>
+            <div class="buttons"><strong>6</strong></div>
+            <div class="buttons"><strong>7</strong></div>
+            <div class="buttons"><strong>8</strong></div>
+            <div class="buttons"><strong>9</strong></div>
+            <div class="buttons"><strong><</strong></div>
+            <div class="buttons"><strong>0</strong></div>
+            <div class="buttons"><strong>></strong></div>
+        </div>
+
+
+
+        <img src="assets/images/games/bombs/sticky.png" id="sticky">
+
+        <div id="stickyBox">
+            <div id="stickyQbox" class="stickyInnerBox">Question</div>
+
+            <div id="stickyAbox" class="stickyInnerBox">
+                <p id="digitOutput">Digit:</p>
+                <table id="multiAnswerBox">
+                    <tr>
+                        <td><input type="checkbox" name="a0" id="a0" class="answers"></td>
+                        <td><label for="a0" id="l0">placeholder</label></td>
+                    </tr>
+                    <tr>
+                        <td><input type="checkbox" name="a1" id="a1" class="answers"></td>
+                        <td><label for="a1" id="l1">placeholder</label></td>
+                    </tr>
+                    <tr>
+                        <td><input type="checkbox" name="a2" id="a2" class="answers"></td>
+                        <td><label for="a2" id="l2">placeholder</label></td>
+                    </tr>
+                    <tr>
+                        <td><input type="checkbox" name="a3" id="a3" class="answers"></td>
+                        <td><label for="a3" id="l3">placeholder</label></td>
+                    </tr>
+                </table>
+
+                <textarea id="openAnswerBox"></textarea>
+            </div>
+
+            <div id="stickyNbox" class="stickyInnerBox">
+                Notes: <br>
+                <textarea id="userNotes"></textarea>
+            </div>
+
+            <div id="qnr">x</div>
+        </div>
+    </div>
+    
+
+    <!-- Prep Scripts -->
+    <script src="scripts/apps/games/bombs/c4.js"></script>
+</body>
+</html>

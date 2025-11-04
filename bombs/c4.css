@@ -1,0 +1,176 @@
+#appMain {
+    position: relative;
+    background-color: black;
+
+    user-select: none;
+}
+
+
+textarea {
+    background-color: rgba(255, 255, 255, 0.2);
+    resize: none;
+    font-size: 30px;
+    font-family: "Windows XP Tahoma";
+    padding: 5px;
+    border: none;
+    outline: none;
+
+    width: 100%;
+    height: 87%;
+}
+
+
+
+#bombus {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1.25);
+
+    pointer-events: none;
+}
+
+#numberBox {
+    width: 234px;
+    height: 54px;
+
+    /* background-color: rgba(255, 0, 0, 0.200); */
+
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1.25);
+
+    margin-top: -206px;
+    padding: 6px;
+    color: black;
+
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 6px;
+}
+.digits {
+    width: 100%;
+    height: 100%;
+
+    /* background-color: rgba(0, 0, 255, 0.2); */
+    padding-left: 1px;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.highlight { background-color: rgba(218, 165, 32, 0.8); }
+
+#buttonBox {
+    height: 246px;
+    width: 186px;
+
+    /* background-color: rgba(255, 0, 0, 0.200); */
+
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1.25);
+    
+    margin-top: 63.75px;
+    padding: 6px;
+
+    display: grid;
+    grid-template-columns: auto auto auto;
+    gap: 6px;
+}
+.buttons {
+    width: 54px;
+    height: 54px;
+
+    /* background-color: rgba(0, 0, 255, 0.200); */
+
+    cursor: pointer;
+    padding-left: 1px;
+    color: black;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.buttons:hover  { background-color: rgba(255, 255, 255, 0.1); }
+.buttons:active { background-color: rgba(0, 0, 0, 0.2); }
+
+
+
+#sticky {
+    position: absolute;
+    left: 20%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1);
+
+    pointer-events: none;
+}
+
+#stickyBox {
+    width: 426px;
+    height: 570px;
+
+    /* background-color: rgba(255, 0, 0, 0.2); */
+    color: black;
+
+    position: absolute;
+    left: 20%;
+    top: 50%;
+    transform: translate(-32.0%, -57%) scale(0.8);
+    rotate: -14.5deg;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stickyInnerBox {
+    /* background-color: rgba(0, 0, 255, 0.2); */
+
+    width: 70%;
+    user-select: none;
+
+    font-size: 30px;
+}
+
+#stickyQbox {
+    height: 8%;
+    margin-top: 8%;
+
+    letter-spacing: 1px;
+}
+
+#stickyAbox {
+    height: 36%;
+    margin-top: 8%;
+}
+#digitOutput {
+    margin-bottom: 5px;
+}
+#multiAnswerBox {
+    display: flex;
+    flex-direction: column;
+}
+#multiAnswerBox tr {
+    height: 100%;
+}
+#multiAnswerBox input {
+    margin-right: 10px;
+}
+#openAnswerBox {
+    height: 100%;
+}
+
+#stickyNbox {
+    margin-top: 10%;
+    height: 30%;
+}
+
+#qnr {
+    position: absolute;
+    bottom: 6%;
+    right: 8%;
+}

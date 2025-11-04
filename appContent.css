@@ -1,0 +1,54 @@
+body {
+    background-color: #efecde;
+    color: black;
+
+    display: flex;
+    flex-direction: column;
+}
+
+
+#topBar {
+    display: flex;
+    position: relative;
+
+    height: 50px;
+    width: 100%;
+
+    border-top: 2px solid #0c4cd1;
+    border-bottom: 2px solid #dcd6c2;
+}
+#appOS {
+    height: 100%;
+
+    position: absolute;
+    right: 0;
+    background-color: white;
+
+    border-left: 2px solid #e2e2d6;
+    padding: 2px;
+
+    transition: background-color 0.1s;
+    user-select: none;
+}
+#appOS:hover {
+    background-color: black;
+}
+#appOS img {
+    height: 100%;
+    opacity: 0.5;
+}
+
+
+#appMain {
+    height: 100%;
+    width: 100%;
+
+    background-color: #ffffff;
+}
+
+
+#bottomBar {
+    width: 100%;
+    border-top: 2px solid #faf9f7;
+    height: 30px;
+}
