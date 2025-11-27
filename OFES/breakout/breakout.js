@@ -120,7 +120,7 @@ if (typeof bricks === "undefined") {
 function setup() {
 
     // Load Game Font
-    let gameFont = loadFont("assets/fonts/sci-fi/orbitron.ttf");
+    let gameFont = loadFont("../sublimator/assets/fonts/orbitron.ttf");
     textFont(gameFont);
 
     // Create canvas
