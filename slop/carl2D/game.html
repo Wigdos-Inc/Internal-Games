@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carl the Urgent Slug Urchin - Game</title>
+
+    <!-- p5.js Library -->
+    <script src="../../globalScripts/libraries/p5/p5.min.js"></script>
+    <script src="../../globalScripts/libraries/p5/p5.sound.min.js"></script>
+
+    <!-- Game Stylesheet -->
+    <link rel="stylesheet" href="carl.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="hud">
+            <div id="hud-left">
+                <div id="distance-display">Time: <span id="distance">0:00.000</span></div>
+                <div id="speed-display">Speed: <span id="speed">0</span></div>
+            </div>
+            <div id="hud-center">
+                <div id="lives-display">Lives: <span id="lives">3</span></div>
+            </div>
+            <div id="hud-right">
+                <div id="highscore-display">Best Time: <span id="highscore">--:--:---</span></div>
+            </div>
+        </div>
+
+        <div id="canvas-container"></div>
+
+        <!-- Pause Menu Overlay -->
+        <div id="pause-menu" class="menu-overlay hidden">
+            <div class="menu-content">
+                <h2>PAUSED</h2>
+                <p>Press SPACE or ESC to resume</p>
+                <button onclick="resumeGame()">Resume</button>
+                <button onclick="returnToTitle()">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-menu" class="menu-overlay hidden">
+            <div class="menu-content">
+                <h2>GAME OVER</h2>
+                <p id="final-distance">Time: 0:00.000</p>
+                <p id="gameover-message">Carl got caught!</p>
+                <button id="try-again-btn" onclick="restartGame()">Try Again</button>
+                <button onclick="returnToTitle()">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Logic -->
+    <script src="carl.js"></script>
+</body>
+</html>
