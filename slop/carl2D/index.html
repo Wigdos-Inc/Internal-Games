@@ -157,8 +157,26 @@
             font-size: clamp(1rem, 3vw, 1.5rem);
             color: #ffeb3b;
             text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
-            margin-bottom: 4vh;
+            margin-bottom: 1vh;
             font-style: italic;
+        }
+
+        #version-credit {
+            font-size: clamp(0.7rem, 2vw, 1rem);
+            color: rgba(255, 255, 255, 0.7);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            margin-bottom: 3vh;
+            font-style: italic;
+        }
+
+        #wigdos-credit {
+            position: absolute;
+            bottom: 2vh;
+            right: 2vw;
+            font-size: clamp(0.7rem, 1.8vw, 1rem);
+            color: rgba(255, 255, 255, 0.6);
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            z-index: 10;
         }
 
         #start-button {
@@ -209,6 +227,10 @@
                 font-size: clamp(1.3rem, 4vw, 2rem);
             }
 
+            #version-credit {
+                font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+            }
+
             #start-button {
                 padding: 3vh 10vw;
                 font-size: clamp(1.8rem, 6vw, 2.5rem);
@@ -225,8 +247,10 @@
             <img id="carl-character" src="carl.png" alt="Carl the Urgent Slug Urchin">
             <h1 id="game-title">CARL</h1>
             <p id="subtitle">The Urgent Slug Urchin</p>
+            <p id="version-credit">Beta v0.3.1 - Made by Claude Sonnet 4.5</p>
             <button id="start-button">Start Adventure</button>
         </div>
+        <div id="wigdos-credit">Wigdos Studios Inc.</div>
     </div>
 
     <!-- Game Container -->
@@ -246,6 +270,9 @@
         </div>
 
         <div id="canvas-container"></div>
+
+        <!-- Wigdos Studios Credit (visible during gameplay) -->
+        <div id="wigdos-credit-game">Wigdos Studios Inc.</div>
 
         <!-- Pause Menu Overlay -->
         <div id="pause-menu" class="menu-overlay hidden">

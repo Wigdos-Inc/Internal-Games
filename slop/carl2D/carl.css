@@ -58,6 +58,18 @@ html, body {
     font-size: 1.4rem;
 }
 
+/* Wigdos Studios Credit (during gameplay) */
+#wigdos-credit-game {
+    position: absolute;
+    bottom: 1vh;
+    right: 1vw;
+    font-size: clamp(0.6rem, 1.5vw, 0.9rem);
+    color: rgba(255, 255, 255, 0.5);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    z-index: 150;
+    pointer-events: none;
+}
+
 #pause-button {
     margin-top: 1vh;
     padding: 1vh;
