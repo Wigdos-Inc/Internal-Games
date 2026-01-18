@@ -1,0 +1,581 @@
+/* ============================================
+   OBSTACLES - ENEMIES, PLATFORMS, POWERUPS
+   ============================================ */
+
+"use strict";
+
+// ========== PLATFORMS ==========
+class Platform {
+    constructor(x, y, width, height) {
+        this.x = x; this.y = y; this.width = width; this.height = height || (30 * scaleY);
+        this.toRemove = false;
+        this.decorSeed = floor(random(100000));
+        
+        // Only spawn entities on platforms wide enough
+        if (this.width < GAME_CONFIG.PLATFORM_MIN_WIDTH_FOR_SPAWNS) return;
+        
+        // Single RNG roll for spawn type:
+        // 0-0.25: 1 crab (25%)
+        // 0.25-0.30: 2 crabs (5%)
+        // 0.30-0.40: speed powerup (10%)
+        // 0.40-0.50: shield powerup (10%)
+        // 0.50-1.00: nothing (50%)
+        let spawnRoll = random();
+        let spawnType = 'nothing';
+        let crabCount = 0;
+        
+        if (spawnRoll < 0.25) {
+            spawnType = 'crab';
+            crabCount = 1;
+        } else if (spawnRoll < 0.30) {
+            spawnType = 'crab';
+            crabCount = 2;
+        } else if (spawnRoll < 0.40) {
+            spawnType = 'speed';
+        } else if (spawnRoll < 0.50) {
+            spawnType = 'shield';
+        }
+        
+        // Spawn crabs if rolled
+        if (crabCount > 0) {
+            for (let i = 0; i < crabCount; i++) {
+                let crabX = this.x + random(50, this.width - 50);
+                let crabY = this.y - 30;
+                
+                // Only skip spawning if near start AND too close to Carl
+                let shouldSpawn = true;
+                
+                if (typeof game !== 'undefined' && game && typeof game.seaLevel !== 'undefined') {
+                    let nearStart = Math.abs(this.y - game.seaLevel) < GAME_CONFIG.PLATFORM_START_SAFE_ZONE;
+                    
+                    if (nearStart && typeof carl !== 'undefined' && carl) {
+                        let safeRadius = GAME_CONFIG.PLATFORM_CRAB_SAFE_RADIUS;
+                        let distToCarl = dist(crabX, crabY, carl.x, carl.y);
+                        if (distToCarl <= safeRadius) {
+                            shouldSpawn = false;
+                        }
+                    }
+                }
+                
+                if (shouldSpawn) {
+                    enemies.push(new Crab(crabX, crabY, this.x, this.x + this.width));
+                }
+            }
+        }
+        
+        // Spawn powerup if rolled (only if no powerup already exists)
+        if ((spawnType === 'speed' || spawnType === 'shield') && powerups.length === 0) {
+            powerups.push(new Powerup(this.x + this.width / 2, this.y - 40, spawnType));
+        }
+    }
+    
+    update() {
+        if (this.y - game.cameraY > height + 200) this.toRemove = true;
+    }
+    
+    draw() {
+        push(); translate(0, -game.cameraY);
+        fill(0, 0, 0, 50); rect(this.x + 5 * scaleX, this.y + 5 * scaleY, this.width, this.height, 5 * SCALE);
+        fill(120, 100, 80); noStroke(); rect(this.x, this.y, this.width, this.height, 5 * SCALE);
+        fill(80, 140, 60); rect(this.x, this.y, this.width, 8 * scaleY, 5 * SCALE, 5 * SCALE, 0, 0);
+        fill(100, 85, 70);
+        randomSeed(this.decorSeed);
+        for (let i = 0; i < this.width; i += 40 * scaleX) {
+            let rockX = this.x + i + random(-5, 5) * scaleX;
+            let rockY = this.y + 10 * scaleY + random(-3, 3) * scaleY;
+            ellipse(rockX, rockY, 15 * SCALE, 12 * SCALE);
+        }
+        randomSeed(frameCount);
+        pop();
+    }
+}
+
+function generatePlatforms() {
+    while (lastPlatformY > game.cameraY - height * 3) {
+        let gap = random(GAME_CONFIG.PLATFORM_GAP_MIN, GAME_CONFIG.PLATFORM_GAP_MAX);
+        lastPlatformY -= gap;
+        
+        // Stop generating platforms near/above water surface
+        if (lastPlatformY < game.surfaceGoal + 500) {
+            break;
+        }
+        
+        let platformCount = floor(random(1, 3));
+        for (let i = 0; i < platformCount; i++) {
+            let platformWidth = random(GAME_CONFIG.PLATFORM_WIDTH_MIN, GAME_CONFIG.PLATFORM_WIDTH_MAX);
+            let platformHeight = (random() > 0.7 ? random(30, 50) : random(80, 200)) * scaleY;
+            let platformX = random(50 * scaleX, width - platformWidth - 50 * scaleX);
+            platforms.push(new Platform(platformX, lastPlatformY + random(-150, 150) * scaleY, platformWidth, platformHeight));
+        }
+    }
+}
+
+// ========== ENEMIES ==========
+
+// Helper function to count enemies of a specific type
+function countEnemyType(type) {
+    return enemies.filter(e => e.type === type).length;
+}
+
+class Enemy {
+    constructor(type, x, y) {
+        this.type = type; this.x = x; this.y = y; this.toRemove = false; this.animFrame = random(TWO_PI);
+    }
+    update() {
+        this.animFrame += 0.1;
+        // Remove enemies far off-screen to allow new ones to spawn
+        if (abs(this.y - game.cameraY) > height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
+    }
+    checkCollision(carl) {
+        let d = dist(this.x, this.y, carl.x, carl.y);
+        return d < (this.size + carl.size) * 0.7;
+    }
+}
+
+class Jellyfish extends Enemy {
+    constructor(x, y) {
+        super('jellyfish', x, y);
+        this.size = 40 * SCALE; this.bobSpeed = 0.05; this.bobAmount = 30 * scaleY; this.baseY = y;
+    }
+    update() {
+        super.update();
+        this.y = this.baseY + sin(this.animFrame * this.bobSpeed * 50) * this.bobAmount;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        fill(255, 150, 200, 200); noStroke(); arc(0, 0, this.size * 1.2, this.size, PI, TWO_PI);
+        fill(255, 200, 220, 150); arc(0, -5, this.size * 0.8, this.size * 0.6, PI, TWO_PI);
+        stroke(255, 100, 150, 180); strokeWeight(3 * SCALE);
+        for (let i = 0; i < 6; i++) {
+            let offset = (i - 2.5) * 8;
+            let wave = sin(this.animFrame + i) * 10;
+            noFill(); beginShape(); vertex(offset, this.size * 0.5);
+            bezierVertex(offset + wave, this.size * 0.7, offset - wave, this.size * 0.9, offset + wave * 0.5, this.size * 1.2);
+            endShape();
+        }
+        pop();
+    }
+}
+
+class Crab extends Enemy {
+    constructor(x, y, leftBound, rightBound) {
+        super('crab', x, y);
+        this.size = 35 * SCALE; this.speed = ENEMY_CONFIG.CRAB_SPEED;
+        this.direction = random() > 0.5 ? 1 : -1;
+        this.leftBound = leftBound; this.rightBound = rightBound;
+    }
+    update() {
+        this.animFrame += 0.1;
+        // Only remove crabs when they're far BELOW the camera (already passed)
+        // Don't remove them when they're above (not yet reached)
+        if (this.y - game.cameraY > height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
+        
+        this.x += this.speed * this.direction;
+        if (this.x <= this.leftBound + 20 || this.x >= this.rightBound - 20) this.direction *= -1;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        if (this.direction < 0) scale(-1, 1);
+        fill(220, 80, 60); noStroke(); ellipse(0, 0, this.size, this.size * 0.7);
+        stroke(180, 60, 40); strokeWeight(2 * SCALE); noFill();
+        for (let i = -1; i <= 1; i++) arc(i * 8, -5, 12, 12, 0, PI);
+        fill(240, 100, 80); noStroke();
+        push(); translate(-this.size * 0.5, -5);
+        ellipse(0, 0, 15, 10); triangle(-5, 0, -12, -8, -8, -3); pop();
+        push(); translate(this.size * 0.5, -5);
+        ellipse(0, 0, 15, 10); triangle(5, 0, 12, -8, 8, -3); pop();
+        stroke(220, 80, 60); strokeWeight(3 * SCALE);
+        line(-8, -8, -8, -15); line(8, -8, 8, -15);
+        fill(255); noStroke(); circle(-8, -16, 8); circle(8, -16, 8);
+        fill(0); circle(-8, -16, 4); circle(8, -16, 4);
+        stroke(220, 80, 60); strokeWeight(2 * SCALE);
+        for (let i = -2; i <= 2; i++) {
+            if (i === 0) continue;
+            let legX = i * 8;
+            let legBob = sin(this.animFrame + i) * 2;
+            line(legX, this.size * 0.3, legX, this.size * 0.5 + legBob);
+        }
+        pop();
+    }
+}
+
+class Mine extends Enemy {
+    constructor(x, y) {
+        super('mine', x, y);
+        this.size = 35 * SCALE; this.rotationSpeed = 0.02; this.rotation = 0;
+    }
+    update() {
+        super.update(); this.rotation += this.rotationSpeed;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY); rotate(this.rotation);
+        fill(60, 60, 70); noStroke(); circle(0, 0, this.size);
+        fill(40, 40, 50); arc(0, 0, this.size, this.size, PI * 0.5, PI * 1.5);
+        fill(80, 80, 90);
+        for (let i = 0; i < 8; i++) {
+            let angle = (TWO_PI / 8) * i;
+            push(); rotate(angle); rect(-3, this.size * 0.5, 6, 15); ellipse(0, this.size * 0.5 + 15, 8, 8); pop();
+        }
+        let pulseAlpha = map(sin(this.animFrame * 5), -1, 1, 100, 255);
+        fill(255, 0, 0, pulseAlpha); circle(0, 0, 8);
+        pop();
+    }
+}
+
+class Urchin extends Enemy {
+    constructor(x, y) {
+        super('urchin', x, y);
+        this.size = 45 * SCALE; this.spikeCount = 16;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        stroke(90, 50, 110); strokeWeight(4 * SCALE);
+        for (let i = 0; i < this.spikeCount; i++) {
+            let angle = (TWO_PI / this.spikeCount) * i;
+            let len = this.size * 0.8 + sin(this.animFrame + i) * 5;
+            let x1 = cos(angle) * (this.size * 0.3);
+            let y1 = sin(angle) * (this.size * 0.3);
+            let x2 = cos(angle) * len;
+            let y2 = sin(angle) * len;
+            line(x1, y1, x2, y2);
+        }
+        fill(120, 70, 140); noStroke(); circle(0, 0, this.size * 0.6);
+        fill(100, 50, 120);
+        for (let i = 0; i < 5; i++) {
+            let angle = (TWO_PI / 5) * i + this.animFrame * 0.5;
+            let x = cos(angle) * 8;
+            let y = sin(angle) * 8;
+            circle(x, y, 6);
+        }
+        pop();
+    }
+}
+
+class SideJellyfish extends Enemy {
+    constructor(x, y, direction) {
+        super('sidejellyfish', x, y);
+        this.size = 45 * SCALE; this.speed = 2 * scaleX; this.direction = direction;
+        this.bobAmount = 40 * scaleY; this.baseY = y;
+    }
+    update() {
+        super.update();
+        this.x += this.speed * this.direction;
+        this.y = this.baseY + sin(this.animFrame * 3) * this.bobAmount;
+        if (this.x < -100 || this.x > width + 100) this.toRemove = true;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        if (this.direction < 0) scale(-1, 1);
+        fill(180, 100, 255, 200); noStroke(); arc(0, 0, this.size * 1.3, this.size * 1.1, PI, TWO_PI);
+        fill(200, 150, 255, 150); arc(0, -5, this.size * 0.9, this.size * 0.7, PI, TWO_PI);
+        stroke(160, 80, 230, 180); strokeWeight(3 * SCALE);
+        for (let i = 0; i < 8; i++) {
+            let offset = (i - 3.5) * 7;
+            let wave = sin(this.animFrame + i) * 12;
+            noFill(); beginShape(); vertex(offset, this.size * 0.55);
+            bezierVertex(offset + wave, this.size * 0.75, offset - wave, this.size * 0.95, offset + wave * 0.5, this.size * 1.3);
+            endShape();
+        }
+        pop();
+    }
+}
+
+class Shark extends Enemy {
+    constructor(x, y, direction) {
+        super('shark', x, y);
+        this.size = 60 * SCALE; this.speed = ENEMY_CONFIG.SHARK_SPEED; this.direction = direction;
+    }
+    update() {
+        super.update();
+        this.x += this.speed * this.direction;
+        if (this.x < -150 || this.x > width + 150) this.toRemove = true;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        if (this.direction < 0) scale(-1, 1);
+        fill(100, 120, 140); noStroke();
+        ellipse(0, 0, this.size * 1.4, this.size * 0.6);
+        triangle(this.size * 0.7, 0, this.size * 1.1, 0, this.size * 0.9, -this.size * 0.4);
+        triangle(-this.size * 0.6, 0, -this.size * 0.9, 0, -this.size * 0.75, this.size * 0.5);
+        triangle(-this.size * 0.6, 0, -this.size * 0.9, 0, -this.size * 0.75, -this.size * 0.5);
+        fill(80, 100, 120);
+        triangle(this.size * 0.2, -this.size * 0.3, this.size * 0.5, -this.size * 0.3, this.size * 0.35, -this.size * 0.7);
+        fill(255); circle(this.size * 0.4, -this.size * 0.15, 12);
+        fill(0); circle(this.size * 0.4, -this.size * 0.15, 6);
+        fill(200, 210, 220); arc(-this.size * 0.3, this.size * 0.1, this.size * 0.6, this.size * 0.3, 0, PI);
+        stroke(80, 90, 100); strokeWeight(2 * SCALE); noFill();
+        for (let i = 0; i < 5; i++) {
+            let x = -this.size * 0.5 + i * 8;
+            line(x, this.size * 0.1, x + 4, this.size * 0.25);
+        }
+        pop();
+    }
+}
+
+class Bomb extends Enemy {
+    constructor(x, y, direction) {
+        super('bomb', x, y);
+        this.size = 70 * SCALE; this.speed = ENEMY_CONFIG.BOMB_SPEED; this.direction = direction;
+        this.exploding = false; this.explosionTimer = 0; this.maxExplosionTime = 30;
+    }
+    update() {
+        super.update();
+        if (this.exploding) {
+            this.explosionTimer++;
+            if (this.explosionTimer >= this.maxExplosionTime) this.toRemove = true;
+        } else {
+            this.x += this.speed * this.direction;
+            if (this.x < -150 || this.x > width + 150) this.toRemove = true;
+        }
+    }
+    checkCollision(carl) {
+        if (this.exploding) return false;
+        let d = dist(this.x, this.y, carl.x, carl.y);
+        if (d < (this.size + carl.size) * 0.7) {
+            this.exploding = true;
+            return true;
+        }
+        return false;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        if (this.exploding) {
+            let progress = this.explosionTimer / this.maxExplosionTime;
+            let explosionSize = this.size * 3 * progress;
+            let alpha = 255 * (1 - progress);
+            fill(255, 150, 0, alpha); noStroke(); circle(0, 0, explosionSize);
+            fill(255, 200, 100, alpha * 0.7); circle(0, 0, explosionSize * 0.7);
+            fill(255, 255, 200, alpha * 0.5); circle(0, 0, explosionSize * 0.4);
+            for (let i = 0; i < 8; i++) {
+                let angle = (TWO_PI / 8) * i + this.explosionTimer * 0.1;
+                let len = explosionSize * 0.6;
+                stroke(255, 180, 50, alpha); strokeWeight(3 * SCALE);
+                line(0, 0, cos(angle) * len, sin(angle) * len);
+            }
+        } else {
+            fill(60, 60, 70); noStroke(); circle(0, 0, this.size);
+            fill(40, 40, 50); arc(0, 0, this.size, this.size, PI * 0.5, PI * 1.5);
+            fill(80, 80, 90);
+            for (let i = 0; i < 12; i++) {
+                let angle = (TWO_PI / 12) * i;
+                push(); rotate(angle); rect(-2, this.size * 0.5, 4, this.size * 0.3); pop();
+            }
+            let pulseAlpha = map(sin(this.animFrame * 5), -1, 1, 100, 255);
+            fill(255, 50, 50, pulseAlpha); circle(0, 0, 10);
+            fill(255, 255, 255, 80); circle(-this.size * 0.2, -this.size * 0.2, this.size * 0.25);
+        }
+        pop();
+    }
+}
+
+class Fishhook extends Enemy {
+    constructor(x, y) {
+        super('fishhook', x, y);
+        this.size = 40 * SCALE; this.baseY = y; this.swayAmount = 15 * scaleY;
+    }
+    update() {
+        super.update();
+        this.y = this.baseY + sin(this.animFrame * 0.5) * this.swayAmount;
+    }
+    draw() {
+        push(); translate(this.x, this.y - game.cameraY);
+        let lineLength = 300;
+        let segments = 20;
+        for (let i = 0; i < segments; i++) {
+            let progress = i / segments;
+            let alpha = 255 * (1 - progress);
+            let yPos = -this.size * 0.5 - (lineLength * progress);
+            stroke(80, 80, 80, alpha); strokeWeight(2 * SCALE);
+            let nextProgress = (i + 1) / segments;
+            let nextYPos = -this.size * 0.5 - (lineLength * nextProgress);
+            line(0, yPos, 0, nextYPos);
+        }
+        fill(150, 150, 160); noStroke();
+        ellipse(0, -this.size * 0.5, 12, 8);
+        stroke(180, 180, 190); strokeWeight(5 * SCALE); noFill();
+        arc(0, 0, this.size * 0.8, this.size * 0.8, PI * 0.2, PI * 1.3);
+        noStroke(); fill(180, 180, 190);
+        triangle(-this.size * 0.15, this.size * 0.4, this.size * 0.15, this.size * 0.4, 0, this.size * 0.6);
+        fill(200, 100, 100); circle(this.size * 0.2, -this.size * 0.2, 10);
+        pop();
+    }
+}
+
+function spawnFloatingEnemies() {
+    // Grace period: reduced spawn rate in first N seconds
+    if (game.currentTime < GAME_CONFIG.GRACE_PERIOD_SECONDS && random() > GAME_CONFIG.GRACE_PERIOD_SPAWN_CHANCE) {
+        return;
+    }
+    
+    // Don't spawn enemies near/above water surface
+    if (game.cameraY < game.surfaceGoal + 1000) {
+        return;
+    }
+    
+    let maxEnemies = GAME_CONFIG.MAX_TOTAL_ENEMIES;
+    // Hard cap - no spawning if at max
+    if (enemies.length >= maxEnemies) {
+        return;
+    }
+    
+    // Scale spawn chance based on enemy count (more enemies = harder to spawn)
+    let enemyRatio = enemies.length / maxEnemies;
+    let spawnChance = map(enemyRatio, 0, 1, GAME_CONFIG.SPAWN_CHANCE_FLOATING_MIN, GAME_CONFIG.SPAWN_CHANCE_FLOATING_MAX);
+    
+    if (random() > spawnChance) {
+        let safeRadius = GAME_CONFIG.ENEMY_SAFE_RADIUS;
+        let spawnX, spawnY;
+        let attempts = 0;
+        do {
+            spawnY = game.cameraY - height / 2 + random(-height, -height / 2);
+            spawnX = random(width);
+            attempts++;
+        } while (dist(spawnX, spawnY, carl.x, carl.y) < safeRadius && attempts < 10);
+        
+        if (attempts < 10) {
+            let enemyType = floor(random(3));
+            if (enemyType === 0) {
+                // Check jellyfish limit (max 5)
+                if (countEnemyType('jellyfish') < ENEMY_LIMITS['jellyfish']) {
+                    enemies.push(new Jellyfish(spawnX, spawnY));
+                }
+            } else if (enemyType === 1) {
+                // Check small mine limit (max 4)
+                if (countEnemyType('mine') < ENEMY_LIMITS['mine']) {
+                    enemies.push(new Mine(spawnX, spawnY));
+                }
+            } else {
+                // Check urchin limit (max 3)
+                if (countEnemyType('urchin') < ENEMY_LIMITS['urchin']) {
+                    enemies.push(new Urchin(spawnX, spawnY));
+                }
+            }
+        }
+    }
+}
+
+function spawnSideEnemies() {
+    // Grace period: reduced spawn rate in first N seconds
+    if (game.currentTime < GAME_CONFIG.GRACE_PERIOD_SECONDS && random() > GAME_CONFIG.GRACE_PERIOD_SPAWN_CHANCE) {
+        return;
+    }
+    
+    // Don't spawn enemies near/above water surface
+    if (game.cameraY < game.surfaceGoal + 1000) {
+        return;
+    }
+    
+    let maxEnemies = GAME_CONFIG.MAX_TOTAL_ENEMIES;
+    // Hard cap - no spawning if at max
+    if (enemies.length >= maxEnemies) {
+        return;
+    }
+    
+    // Scale spawn chance based on enemy count (more enemies = harder to spawn)
+    let enemyRatio = enemies.length / maxEnemies;
+    let spawnChance = map(enemyRatio, 0, 1, GAME_CONFIG.SPAWN_CHANCE_SIDE_MIN, GAME_CONFIG.SPAWN_CHANCE_SIDE_MAX);
+    
+    if (random() > spawnChance) {
+        let safeRadius = GAME_CONFIG.ENEMY_SAFE_RADIUS;
+        let spawnY = game.cameraY + random(-height * 0.3, height * 0.3);
+        
+        if (Math.abs(spawnY - carl.y) < safeRadius) {
+            return;
+        }
+        
+        let direction = random() > 0.5 ? 1 : -1;
+        let spawnX = direction > 0 ? -100 : width + 100;
+        let enemyType = floor(random(4));
+        
+        if (enemyType === 3) {
+            let hookX = random(width * 0.2, width * 0.8);
+            if (dist(hookX, spawnY, carl.x, carl.y) < safeRadius) {
+                return;
+            }
+            // Check fishhook limit (max 3)
+            if (countEnemyType('fishhook') < ENEMY_LIMITS['fishhook']) {
+                enemies.push(new Fishhook(hookX, spawnY));
+            }
+        } else {
+            // Check full distance for side-spawning enemies too
+            if (dist(spawnX, spawnY, carl.x, carl.y) < safeRadius) {
+                return;
+            }
+            if (enemyType === 0) {
+                // Side jellyfish has same limit as regular jellyfish (max 5)
+                if (countEnemyType('jellyfish') < ENEMY_LIMITS['jellyfish']) {
+                    enemies.push(new SideJellyfish(spawnX, spawnY, direction));
+                }
+            } else if (enemyType === 1) {
+                // Check shark limit (max 3)
+                if (countEnemyType('shark') < ENEMY_LIMITS['shark']) {
+                    enemies.push(new Shark(spawnX, spawnY, direction));
+                }
+            } else if (enemyType === 2) {
+                // Check bomb/big mine limit (max 3)
+                if (countEnemyType('bomb') < ENEMY_LIMITS['bomb']) {
+                    enemies.push(new Bomb(spawnX, spawnY, direction));
+                }
+            }
+        }
+    }
+}
+
+// ========== POWERUPS ==========
+class Powerup {
+    constructor(x, y, type) {
+        this.x = x; this.y = y; this.type = type; this.size = 30 * SCALE;
+        this.collected = false; this.toRemove = false; this.animFrame = 0;
+        this.bobAmount = 10 * scaleY; this.baseY = y;
+    }
+    update() {
+        this.animFrame += 0.1;
+        this.y = this.baseY + sin(this.animFrame) * this.bobAmount;
+        if (!this.collected) {
+            let d = dist(this.x, this.y, carl.x, carl.y);
+            if (d < this.size + carl.size) this.collect();
+        }
+        // Only remove powerups when far BELOW camera (already passed), not above (not yet reached)
+        if (this.y - game.cameraY > height * 2) this.toRemove = true;
+    }
+    collect() {
+        this.collected = true; this.toRemove = true;
+        sounds.play('powerup');
+        if (this.type === 'speed') {
+            carl.applySpeedBoost(CARL_CONFIG.SPEED_BOOST_DURATION);
+        } else if (this.type === 'shield') {
+            carl.hasShield = true;
+        }
+        for (let i = 0; i < 15; i++) particles.push(new Particle(this.x, this.y, 'powerup'));
+    }
+    draw() {
+        if (this.collected) return;
+        push(); translate(this.x, this.y - game.cameraY); rotate(this.animFrame);
+        
+        if (this.type === 'speed') {
+            fill(255, 255, 0, 100); noStroke(); circle(0, 0, this.size * 1.5);
+            fill(255, 220, 0);
+        } else if (this.type === 'shield') {
+            fill(100, 200, 255, 100); noStroke(); circle(0, 0, this.size * 1.5);
+            fill(100, 180, 255);
+        }
+        
+        beginShape();
+        for (let i = 0; i < 10; i++) {
+            let angle = (TWO_PI / 10) * i;
+            let r = i % 2 === 0 ? this.size * 0.6 : this.size * 0.3;
+            let x = cos(angle) * r;
+            let y = sin(angle) * r;
+            vertex(x, y);
+        }
+        endShape(CLOSE);
+        
+        fill(255, 100, 0); textAlign(CENTER, CENTER); textSize(16); textStyle(BOLD);
+        if (this.type === 'speed') {
+            text('⚡', 0, 0);
+        } else if (this.type === 'shield') {
+            text('🛡', 0, 0);
+        }
+        pop();
+    }
+}

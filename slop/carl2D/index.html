@@ -3,26 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carl the Urgent Slug Urchin Mobile Edition 2D Light</title>
+    <title>Carl the Urgent Slug Urchin - 2D Light</title>
+    <link rel="icon" type="image/png" href="carl.png">
     
-    <!-- p5.js and p5.sound for menu music -->
+    <!-- p5.js Library -->
     <script src="../../globalScripts/libraries/p5/p5.min.js"></script>
     <script src="../../globalScripts/libraries/p5/p5.sound.min.js"></script>
+
+    <!-- Game Stylesheet -->
+    <link rel="stylesheet" href="carl.css">
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            overflow: hidden;
+        /* Main Menu Overlay Styles */
+        #main-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
             background: linear-gradient(180deg, #0a4d68 0%, #1a7ba0 30%, #2596be 60%, #88d4e8 100%);
-            position: relative;
+            z-index: 300;
+            overflow: hidden;
+            transition: opacity 0.5s ease;
+        }
+
+        #main-menu-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
         }
 
         #ocean-bg {
@@ -207,44 +214,60 @@
     </style>
 </head>
 <body>
-    <div id="ocean-bg"></div>
+    <!-- Main Menu Overlay -->
+    <div id="main-menu-overlay">
+        <div id="ocean-bg"></div>
 
-    <div id="title-container">
-        <img id="carl-character" src="carl.png" alt="Carl the Urgent Slug Urchin">
-        <h1 id="game-title">CARL</h1>
-        <p id="subtitle">The Urgent Slug Urchin</p>
-        <button id="start-button" onclick="startGame()">Start Adventure</button>
+        <div id="title-container">
+            <img id="carl-character" src="carl.png" alt="Carl the Urgent Slug Urchin">
+            <h1 id="game-title">CARL</h1>
+            <p id="subtitle">The Urgent Slug Urchin</p>
+            <button id="start-button">Start Adventure</button>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container">
+        <div id="hud">
+            <div id="hud-left">
+                <div id="distance-display">Time: <span id="distance">0:00.000</span></div>
+                <div id="speed-display">Speed: <span id="speed">0</span></div>
+            </div>
+            <div id="hud-center">
+                <div id="lives-display">Lives: <span id="lives">3</span></div>
+            </div>
+            <div id="hud-right">
+                <div id="highscore-display">Best Time: <span id="highscore">--:--:---</span></div>
+            </div>
+        </div>
+
+        <div id="canvas-container"></div>
+
+        <!-- Pause Menu Overlay -->
+        <div id="pause-menu" class="menu-overlay hidden">
+            <div class="menu-content">
+                <h2>PAUSED</h2>
+                <p>Press SPACE or ESC to resume</p>
+                <button onclick="resumeGame()">Resume</button>
+                <button onclick="returnToTitle()">Main Menu</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-menu" class="menu-overlay hidden">
+            <div class="menu-content">
+                <h2>GAME OVER</h2>
+                <p id="final-distance">Time: 0:00.000</p>
+                <p id="gameover-message">Carl got caught!</p>
+                <button id="try-again-btn" onclick="restartGame()">Try Again</button>
+                <button onclick="returnToTitle()">Main Menu</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Menu music variables
-        let menuMusic = null;
-        let musicLoaded = false;
-
-        // Load menu music
-        function preload() {
-            soundFormats('mp3', 'ogg', 'wav');
-            menuMusic = loadSound('sounds/background.mp3', 
-                () => { 
-                    console.log('Menu music loaded successfully');
-                    musicLoaded = true;
-                },
-                (err) => { 
-                    console.log('Failed to load menu music:', err);
-                }
-            );
-        }
-
-        // Setup for p5.js (required when using preload)
-        function setup() {
-            noCanvas(); // We don't need a canvas for the menu
-            if (musicLoaded && menuMusic) {
-                menuMusic.setVolume(0.5);
-                menuMusic.loop();
-            }
-        }
-
-        // Generate animated bubbles
+        // ========== MENU SCRIPT ==========
+        // Generate animated bubbles for menu
         function createBubbles() {
             const oceanBg = document.getElementById('ocean-bg');
             
@@ -284,15 +307,38 @@
         }
 
         function startGame() {
-            // Stop menu music before transitioning
-            if (menuMusic && musicLoaded) {
-                menuMusic.stop();
+            // Hide main menu overlay
+            const menuOverlay = document.getElementById('main-menu-overlay');
+            menuOverlay.classList.add('hidden');
+            
+            // Start game music when the game actually begins
+            if (window.gameMusic && window.gameMusicLoaded) {
+                window.gameMusic.setVolume(0.5);
+                window.gameMusic.loop();
             }
-            window.location.href = 'game.html';
+            
+            // Start the game
+            if (window.startGamePlay) {
+                window.startGamePlay();
+            }
         }
 
-        // Initialize on load
-        window.addEventListener('load', createBubbles);
+        // Set up button listener
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('start-button').addEventListener('click', startGame);
+            createBubbles();
+        });
+
+        // Reload page on window resize
+        window.addEventListener('resize', function() {
+            location.reload();
+        });
     </script>
+
+    <!-- Game Logic -->
+    <script src="macro.js"></script>
+    <script src="visual.js"></script>
+    <script src="obstacles.js"></script>
+    <script src="carl.js"></script>
 </body>
 </html>
