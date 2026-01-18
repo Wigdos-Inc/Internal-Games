@@ -39,8 +39,10 @@ class Platform {
         // Spawn crabs if rolled
         if (crabCount > 0) {
             for (let i = 0; i < crabCount; i++) {
-                let crabX = this.x + random(50, this.width - 50);
-                let crabY = this.y - 30;
+                let crabX = this.x + random(50 * scaleX, this.width - 50 * scaleX);
+                // Position crab on top of platform - use crab size to place properly
+                let crabSize = 35 * SCALE;
+                let crabY = this.y - crabSize;
                 
                 // Only skip spawning if near start AND too close to Carl
                 let shouldSpawn = true;
@@ -65,7 +67,8 @@ class Platform {
         
         // Spawn powerup if rolled (only if no powerup already exists)
         if ((spawnType === 'speed' || spawnType === 'shield') && powerups.length === 0) {
-            powerups.push(new Powerup(this.x + this.width / 2, this.y - 40, spawnType));
+            let powerupSize = 30 * SCALE;
+            powerups.push(new Powerup(this.x + this.width / 2, this.y - powerupSize - 10 * scaleY, spawnType));
         }
     }
     
@@ -144,11 +147,11 @@ class Jellyfish extends Enemy {
     draw() {
         push(); translate(this.x, this.y - game.cameraY);
         fill(255, 150, 200, 200); noStroke(); arc(0, 0, this.size * 1.2, this.size, PI, TWO_PI);
-        fill(255, 200, 220, 150); arc(0, -5, this.size * 0.8, this.size * 0.6, PI, TWO_PI);
+        fill(255, 200, 220, 150); arc(0, -5 * SCALE, this.size * 0.8, this.size * 0.6, PI, TWO_PI);
         stroke(255, 100, 150, 180); strokeWeight(3 * SCALE);
         for (let i = 0; i < 6; i++) {
-            let offset = (i - 2.5) * 8;
-            let wave = sin(this.animFrame + i) * 10;
+            let offset = (i - 2.5) * 8 * SCALE;
+            let wave = sin(this.animFrame + i) * 10 * SCALE;
             noFill(); beginShape(); vertex(offset, this.size * 0.5);
             bezierVertex(offset + wave, this.size * 0.7, offset - wave, this.size * 0.9, offset + wave * 0.5, this.size * 1.2);
             endShape();
@@ -178,21 +181,21 @@ class Crab extends Enemy {
         if (this.direction < 0) scale(-1, 1);
         fill(220, 80, 60); noStroke(); ellipse(0, 0, this.size, this.size * 0.7);
         stroke(180, 60, 40); strokeWeight(2 * SCALE); noFill();
-        for (let i = -1; i <= 1; i++) arc(i * 8, -5, 12, 12, 0, PI);
+        for (let i = -1; i <= 1; i++) arc(i * 8 * SCALE, -5 * SCALE, 12 * SCALE, 12 * SCALE, 0, PI);
         fill(240, 100, 80); noStroke();
-        push(); translate(-this.size * 0.5, -5);
-        ellipse(0, 0, 15, 10); triangle(-5, 0, -12, -8, -8, -3); pop();
-        push(); translate(this.size * 0.5, -5);
-        ellipse(0, 0, 15, 10); triangle(5, 0, 12, -8, 8, -3); pop();
+        push(); translate(-this.size * 0.5, -5 * SCALE);
+        ellipse(0, 0, 15 * SCALE, 10 * SCALE); triangle(-5 * SCALE, 0, -12 * SCALE, -8 * SCALE, -8 * SCALE, -3 * SCALE); pop();
+        push(); translate(this.size * 0.5, -5 * SCALE);
+        ellipse(0, 0, 15 * SCALE, 10 * SCALE); triangle(5 * SCALE, 0, 12 * SCALE, -8 * SCALE, 8 * SCALE, -3 * SCALE); pop();
         stroke(220, 80, 60); strokeWeight(3 * SCALE);
-        line(-8, -8, -8, -15); line(8, -8, 8, -15);
-        fill(255); noStroke(); circle(-8, -16, 8); circle(8, -16, 8);
-        fill(0); circle(-8, -16, 4); circle(8, -16, 4);
+        line(-8 * SCALE, -8 * SCALE, -8 * SCALE, -15 * SCALE); line(8 * SCALE, -8 * SCALE, 8 * SCALE, -15 * SCALE);
+        fill(255); noStroke(); circle(-8 * SCALE, -16 * SCALE, 8 * SCALE); circle(8 * SCALE, -16 * SCALE, 8 * SCALE);
+        fill(0); circle(-8 * SCALE, -16 * SCALE, 4 * SCALE); circle(8 * SCALE, -16 * SCALE, 4 * SCALE);
         stroke(220, 80, 60); strokeWeight(2 * SCALE);
         for (let i = -2; i <= 2; i++) {
             if (i === 0) continue;
-            let legX = i * 8;
-            let legBob = sin(this.animFrame + i) * 2;
+            let legX = i * 8 * SCALE;
+            let legBob = sin(this.animFrame + i) * 2 * SCALE;
             line(legX, this.size * 0.3, legX, this.size * 0.5 + legBob);
         }
         pop();
@@ -214,10 +217,10 @@ class Mine extends Enemy {
         fill(80, 80, 90);
         for (let i = 0; i < 8; i++) {
             let angle = (TWO_PI / 8) * i;
-            push(); rotate(angle); rect(-3, this.size * 0.5, 6, 15); ellipse(0, this.size * 0.5 + 15, 8, 8); pop();
+            push(); rotate(angle); rect(-3 * SCALE, this.size * 0.5, 6 * SCALE, 15 * SCALE); ellipse(0, this.size * 0.5 + 15 * SCALE, 8 * SCALE, 8 * SCALE); pop();
         }
         let pulseAlpha = map(sin(this.animFrame * 5), -1, 1, 100, 255);
-        fill(255, 0, 0, pulseAlpha); circle(0, 0, 8);
+        fill(255, 0, 0, pulseAlpha); circle(0, 0, 8 * SCALE);
         pop();
     }
 }
@@ -232,7 +235,7 @@ class Urchin extends Enemy {
         stroke(90, 50, 110); strokeWeight(4 * SCALE);
         for (let i = 0; i < this.spikeCount; i++) {
             let angle = (TWO_PI / this.spikeCount) * i;
-            let len = this.size * 0.8 + sin(this.animFrame + i) * 5;
+            let len = this.size * 0.8 + sin(this.animFrame + i) * 5 * SCALE;
             let x1 = cos(angle) * (this.size * 0.3);
             let y1 = sin(angle) * (this.size * 0.3);
             let x2 = cos(angle) * len;
@@ -243,9 +246,9 @@ class Urchin extends Enemy {
         fill(100, 50, 120);
         for (let i = 0; i < 5; i++) {
             let angle = (TWO_PI / 5) * i + this.animFrame * 0.5;
-            let x = cos(angle) * 8;
-            let y = sin(angle) * 8;
-            circle(x, y, 6);
+            let x = cos(angle) * 8 * SCALE;
+            let y = sin(angle) * 8 * SCALE;
+            circle(x, y, 6 * SCALE);
         }
         pop();
     }
@@ -267,11 +270,11 @@ class SideJellyfish extends Enemy {
         push(); translate(this.x, this.y - game.cameraY);
         if (this.direction < 0) scale(-1, 1);
         fill(180, 100, 255, 200); noStroke(); arc(0, 0, this.size * 1.3, this.size * 1.1, PI, TWO_PI);
-        fill(200, 150, 255, 150); arc(0, -5, this.size * 0.9, this.size * 0.7, PI, TWO_PI);
+        fill(200, 150, 255, 150); arc(0, -5 * SCALE, this.size * 0.9, this.size * 0.7, PI, TWO_PI);
         stroke(160, 80, 230, 180); strokeWeight(3 * SCALE);
         for (let i = 0; i < 8; i++) {
-            let offset = (i - 3.5) * 7;
-            let wave = sin(this.animFrame + i) * 12;
+            let offset = (i - 3.5) * 7 * SCALE;
+            let wave = sin(this.animFrame + i) * 12 * SCALE;
             noFill(); beginShape(); vertex(offset, this.size * 0.55);
             bezierVertex(offset + wave, this.size * 0.75, offset - wave, this.size * 0.95, offset + wave * 0.5, this.size * 1.3);
             endShape();
@@ -300,13 +303,13 @@ class Shark extends Enemy {
         triangle(-this.size * 0.6, 0, -this.size * 0.9, 0, -this.size * 0.75, -this.size * 0.5);
         fill(80, 100, 120);
         triangle(this.size * 0.2, -this.size * 0.3, this.size * 0.5, -this.size * 0.3, this.size * 0.35, -this.size * 0.7);
-        fill(255); circle(this.size * 0.4, -this.size * 0.15, 12);
-        fill(0); circle(this.size * 0.4, -this.size * 0.15, 6);
+        fill(255); circle(this.size * 0.4, -this.size * 0.15, 12 * SCALE);
+        fill(0); circle(this.size * 0.4, -this.size * 0.15, 6 * SCALE);
         fill(200, 210, 220); arc(-this.size * 0.3, this.size * 0.1, this.size * 0.6, this.size * 0.3, 0, PI);
         stroke(80, 90, 100); strokeWeight(2 * SCALE); noFill();
         for (let i = 0; i < 5; i++) {
-            let x = -this.size * 0.5 + i * 8;
-            line(x, this.size * 0.1, x + 4, this.size * 0.25);
+            let x = -this.size * 0.5 + i * 8 * SCALE;
+            line(x, this.size * 0.1, x + 4 * SCALE, this.size * 0.25);
         }
         pop();
     }
@@ -358,10 +361,10 @@ class Bomb extends Enemy {
             fill(80, 80, 90);
             for (let i = 0; i < 12; i++) {
                 let angle = (TWO_PI / 12) * i;
-                push(); rotate(angle); rect(-2, this.size * 0.5, 4, this.size * 0.3); pop();
+                push(); rotate(angle); rect(-2 * SCALE, this.size * 0.5, 4 * SCALE, this.size * 0.3); pop();
             }
             let pulseAlpha = map(sin(this.animFrame * 5), -1, 1, 100, 255);
-            fill(255, 50, 50, pulseAlpha); circle(0, 0, 10);
+            fill(255, 50, 50, pulseAlpha); circle(0, 0, 10 * SCALE);
             fill(255, 255, 255, 80); circle(-this.size * 0.2, -this.size * 0.2, this.size * 0.25);
         }
         pop();
@@ -379,7 +382,7 @@ class Fishhook extends Enemy {
     }
     draw() {
         push(); translate(this.x, this.y - game.cameraY);
-        let lineLength = 300;
+        let lineLength = 300 * scaleY;
         let segments = 20;
         for (let i = 0; i < segments; i++) {
             let progress = i / segments;
@@ -391,12 +394,12 @@ class Fishhook extends Enemy {
             line(0, yPos, 0, nextYPos);
         }
         fill(150, 150, 160); noStroke();
-        ellipse(0, -this.size * 0.5, 12, 8);
+        ellipse(0, -this.size * 0.5, 12 * SCALE, 8 * SCALE);
         stroke(180, 180, 190); strokeWeight(5 * SCALE); noFill();
         arc(0, 0, this.size * 0.8, this.size * 0.8, PI * 0.2, PI * 1.3);
         noStroke(); fill(180, 180, 190);
         triangle(-this.size * 0.15, this.size * 0.4, this.size * 0.15, this.size * 0.4, 0, this.size * 0.6);
-        fill(200, 100, 100); circle(this.size * 0.2, -this.size * 0.2, 10);
+        fill(200, 100, 100); circle(this.size * 0.2, -this.size * 0.2, 10 * SCALE);
         pop();
     }
 }

@@ -56,10 +56,56 @@ class Carl {
     update() {
         if (game.state === 'playing') {
             let accel = this.acceleration * this.speedBoost;
-            if (CONTROLS.LEFT.some(k => keys[k])) this.vx -= accel;
-            if (CONTROLS.RIGHT.some(k => keys[k])) this.vx += accel;
-            if (CONTROLS.UP.some(k => keys[k])) this.vy -= accel;
-            if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accel;
+            
+            // Touch/mouse controls - move Carl towards touch position
+            if (mouseIsPressed || touches.length > 0) {
+                let targetX = mouseX;
+                let targetY = mouseY + game.cameraY; // Convert screen Y to world Y
+                
+                // If using touches, use first touch
+                if (touches.length > 0) {
+                    targetX = touches[0].x;
+                    targetY = touches[0].y + game.cameraY;
+                }
+                
+                // Check if the touch/click is on the pause button or HUD
+                let pauseButton = document.getElementById('pause-button');
+                let hud = document.getElementById('hud');
+                let clickedElement = document.elementFromPoint(mouseX, mouseY);
+                
+                // Don't move Carl if clicking on pause button or HUD elements
+                let isClickingUI = clickedElement && (
+                    clickedElement === pauseButton || 
+                    pauseButton.contains(clickedElement) ||
+                    clickedElement === hud ||
+                    hud.contains(clickedElement)
+                );
+                
+                if (!isClickingUI) {
+                    // Calculate direction to target
+                    let dx = targetX - this.x;
+                    let dy = targetY - this.y;
+                    
+                    // Apply acceleration towards target
+                    // Horizontal movement
+                    if (Math.abs(dx) > 10 * SCALE) { // Dead zone
+                        if (dx < 0) this.vx -= accel;
+                        else this.vx += accel;
+                    }
+                    
+                    // Vertical movement  
+                    if (Math.abs(dy) > 10 * SCALE) { // Dead zone
+                        if (dy < 0) this.vy -= accel;
+                        else this.vy += accel;
+                    }
+                }
+            } else {
+                // Keyboard controls
+                if (CONTROLS.LEFT.some(k => keys[k])) this.vx -= accel;
+                if (CONTROLS.RIGHT.some(k => keys[k])) this.vx += accel;
+                if (CONTROLS.UP.some(k => keys[k])) this.vy -= accel;
+                if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accel;
+            }
         }
         
         this.vx *= this.friction * this.waterResistance;
@@ -76,7 +122,7 @@ class Carl {
         if (this.x < -this.size) this.x = width + this.size;
         if (this.x > width + this.size) this.x = -this.size;
         
-        let seabedY = game.seaLevel + 100 * scaleY;
+        let seabedY = game.seaLevel + 30 * scaleY;
         if (this.y >= seabedY - this.size) {
             this.y = seabedY - this.size;
             this.vy = 0;
@@ -357,8 +403,8 @@ function draw() {
 // ========== GAME STATE FUNCTIONS ==========
 function initGame() {
     game.state = 'waiting'; game.altitude = 0; game.highestAltitude = 0;
-    // Position sea floor lower on screen (70-80% down) so players can see what's coming, especially on small screens
-    game.lives = GAME_CONFIG.STARTING_LIVES; game.cameraY = 0; game.seaLevel = height * 0.75;
+    // Position sea floor near bottom (90% down) so most of screen shows playable area
+    game.lives = GAME_CONFIG.STARTING_LIVES; game.cameraY = 0; game.seaLevel = height * 0.9;
     game.surfaceGoal = game.seaLevel + GAME_CONFIG.SURFACE_GOAL; game.frameCount = 0;
     game.flyingUp = false; game.flyTimer = 0;
     game.startTime = Date.now();
@@ -376,7 +422,8 @@ function initGame() {
         new BackgroundLayer(0.8, color(150, 70, 160), color(80, 100, 120))
     ];
     background.bubbles = [];
-    for (let i = 0; i < 50; i++) background.bubbles.push(new Bubble(random(width), random(game.seaLevel - 2000, game.seaLevel)));
+    // Spawn bubbles across the full screen height around the starting position
+    for (let i = 0; i < 50; i++) background.bubbles.push(new Bubble(random(width), random(game.cameraY, game.cameraY + height)));
     document.getElementById('pause-menu').classList.add('hidden');
     document.getElementById('gameover-menu').classList.add('hidden');
     // Don't start background music here - will be started when game actually begins

@@ -9,27 +9,31 @@
 // Reference screen size (1920x1080 minus browser chrome ~100px)
 const REFERENCE_WIDTH = 1920;
 const REFERENCE_HEIGHT = 980;
+const REFERENCE_AREA = REFERENCE_WIDTH * REFERENCE_HEIGHT; // Total reference surface area
 
 // Global scale multipliers - calculated based on current screen size
 let scaleX = 1.0;
 let scaleY = 1.0;
-let SCALE = 1.0; // Average scale for objects that need uniform scaling
+let SCALE = 1.0; // Area-based scale for aspect-ratio-locked objects (Carl, enemies)
 
 // Function to calculate scale based on current window size
 // Uses: baseObjectSize / standardScreenSize * currentScreenSize
 function calculateScale() {
     scaleX = window.innerWidth / REFERENCE_WIDTH;
     scaleY = window.innerHeight / REFERENCE_HEIGHT;
-    // SCALE is used for objects that need uniform scaling (like Carl, enemies)
-    // Use the smaller dimension to ensure visibility on all screens
-    SCALE = Math.min(scaleX, scaleY);
+    
+    // SCALE uses total surface area for objects with locked aspect ratios
+    // Formula: sqrt(baseSize / (1920 * 980) * (currentWidth * currentHeight))
+    // Use sqrt to moderate scaling - prevents things from becoming too small on small screens
+    let currentArea = window.innerWidth * window.innerHeight;
+    SCALE = Math.sqrt(currentArea / REFERENCE_AREA);
     
     // Scale UI elements (HUD text, menus) based on screen size
     // Use a base font size of 16px and scale it
     let baseFontSize = 16;
-    let scaledFontSize = baseFontSize * SCALE;
-    // Clamp font size to readable range (min 12px, max 24px)
-    scaledFontSize = Math.max(12, Math.min(24, scaledFontSize));
+    let scaledFontSize = baseFontSize * Math.sqrt(SCALE); // Use sqrt for more reasonable font scaling
+    // Clamp font size to readable range (min 14px, max 28px)
+    scaledFontSize = Math.max(14, Math.min(28, scaledFontSize));
     document.documentElement.style.fontSize = scaledFontSize + 'px';
 }
 
@@ -87,12 +91,14 @@ const ENEMY_LIMITS = {
 // ========== CARL PHYSICS ==========
 const CARL_CONFIG = {
     get SIZE() { return 50 * SCALE; },
-    get ACCELERATION() { return 2.5 * SCALE; },
+    // Use average of SCALE and scaleX to improve responsiveness on thin screens
+    get ACCELERATION() { return 2.5 * ((SCALE + scaleX) / 2); },
     FRICTION: 0.92,
     WATER_RESISTANCE: 0.97,
     get MAX_SPEED() { return 28 * scaleX; },
     get JUMP_POWER() { return -18 * scaleY; },
-    get GRAVITY() { return 0.3 * scaleY; },
+    // Reduce gravity on smaller screens to make vertical movement easier
+    get GRAVITY() { return 0.3 * scaleY * Math.min(scaleY, 1.0); },
     
     // Powerups
     SPEED_BOOST_DURATION: 300,    // Frames

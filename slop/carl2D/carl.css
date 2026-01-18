@@ -4,21 +4,23 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
     font-family: 'Arial', sans-serif;
     overflow: hidden;
     width: 100vw;
     height: 100vh;
+    position: fixed; /* Prevent scrolling on mobile */
     background: linear-gradient(180deg, #041e42 0%, #0a4d68 30%, #1a7ba0 60%, #2596be 100%);
     color: white;
 }
 
 #game-container {
     position: relative;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 /* HUD Styling */
@@ -30,7 +32,7 @@ body {
     z-index: 100;
     display: flex;
     justify-content: space-between;
-    padding: 20px;
+    padding: 1vh 2vw;
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, transparent 100%);
     font-size: 1.2rem;
     font-weight: bold;
@@ -40,7 +42,7 @@ body {
 #hud-left, #hud-center, #hud-right {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0.5vh;
 }
 
 #hud-center {
@@ -54,6 +56,37 @@ body {
 #distance, #speed, #lives, #highscore {
     color: #ffeb3b;
     font-size: 1.4rem;
+}
+
+#pause-button {
+    margin-top: 1vh;
+    padding: 1vh;
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    font-size: clamp(1.4rem, 3.5vw, 2rem);
+    background: linear-gradient(135deg, #ff6b9d 0%, #c9184a 100%);
+    border: 0.2vw solid #ffeb3b;
+    border-radius: 1vh;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 0.3vh 1vh rgba(0, 0, 0, 0.5);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    line-height: 1;
+}
+
+#pause-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0.5vh 1.5vh rgba(0, 0, 0, 0.7);
+}
+
+#pause-button:active {
+    transform: scale(1.05);
 }
 
 /* Canvas Container */
@@ -73,17 +106,18 @@ canvas {
 
 /* Menu Overlays */
 .menu-overlay {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     background: rgba(0, 20, 40, 0.95);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 200;
     transition: opacity 0.3s ease;
+    overflow: hidden;
 }
 
 .menu-overlay.hidden {
@@ -92,13 +126,16 @@ canvas {
 
 .menu-content {
     text-align: center;
-    padding: 50px;
+    padding: 3vh 4vw;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
     background: linear-gradient(135deg, rgba(10, 77, 104, 0.9), rgba(37, 150, 190, 0.9));
-    border: 5px solid #ffeb3b;
-    border-radius: 20px;
+    border: 0.2vw solid #ffeb3b;
+    border-radius: 1.5vh;
     box-shadow: 
-        0 10px 40px rgba(0, 0, 0, 0.8),
-        0 0 30px rgba(255, 235, 59, 0.5);
+        0 1vh 4vh rgba(0, 0, 0, 0.8),
+        0 0 3vh rgba(255, 235, 59, 0.5);
     animation: menu-pop 0.3s ease;
 }
 
@@ -108,82 +145,53 @@ canvas {
 }
 
 .menu-content h2 {
-    font-size: 3rem;
-    margin-bottom: 20px;
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    margin-bottom: 2vh;
     color: #ffeb3b;
     text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
-    letter-spacing: 3px;
+    letter-spacing: 0.05em;
 }
 
 .menu-content p {
-    font-size: 1.5rem;
-    margin-bottom: 15px;
+    font-size: clamp(1.1rem, 3.5vw, 1.8rem);
+    margin-bottom: 1.5vh;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 .menu-content button {
-    padding: 15px 40px;
-    margin: 10px;
-    font-size: 1.3rem;
+    padding: 1.5vh 5vw;
+    margin: 1vh 0.5vw;
+    font-size: clamp(1rem, 2.8vw, 1.5rem);
     font-weight: bold;
     color: white;
     background: linear-gradient(135deg, #ff6b9d 0%, #c9184a 100%);
-    border: 3px solid #ffeb3b;
-    border-radius: 30px;
+    border: 0.2vw solid #ffeb3b;
+    border-radius: 2vh;
     cursor: pointer;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    letter-spacing: 0.02em;
+    box-shadow: 0 0.5vh 1.5vh rgba(0, 0, 0, 0.5);
     transition: all 0.3s ease;
 }
 
 .menu-content button:hover {
-    transform: scale(1.1) translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+    transform: scale(1.1) translateY(-0.3vh);
+    box-shadow: 0 0.8vh 2.5vh rgba(0, 0, 0, 0.7);
     background: linear-gradient(135deg, #ff85b3 0%, #d92855 100%);
 }
 
 .menu-content button:active {
-    transform: scale(1.05) translateY(-1px);
+    transform: scale(1.05) translateY(-0.1vh);
 }
 
 #final-distance {
-    font-size: 2rem;
+    font-size: clamp(1.3rem, 4.5vw, 2.2rem);
     color: #ffeb3b;
-    margin: 20px 0;
+    margin: 2vh 0;
 }
 
 #gameover-message {
-    font-size: 1.3rem;
+    font-size: clamp(1rem, 3vw, 1.6rem);
     color: #ff6b9d;
     font-style: italic;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    #hud {
-        font-size: 1rem;
-        padding: 10px;
-    }
-
-    #distance, #speed, #lives, #highscore {
-        font-size: 1.1rem;
-    }
-
-    .menu-content {
-        padding: 30px;
-    }
-
-    .menu-content h2 {
-        font-size: 2rem;
-    }
-
-    .menu-content p {
-        font-size: 1.2rem;
-    }
-
-    .menu-content button {
-        padding: 12px 30px;
-        font-size: 1.1rem;
-    }
 }

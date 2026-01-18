@@ -120,27 +120,27 @@
         }
 
         #carl-character {
-            width: 300px;
-            height: 300px;
-            margin-bottom: 30px;
+            width: clamp(150px, 30vw, 300px);
+            height: clamp(150px, 30vw, 300px);
+            margin-bottom: 2vh;
             filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.5));
             animation: float-carl 3s ease-in-out infinite;
         }
 
         @keyframes float-carl {
             0%, 100% { transform: translateY(0px) rotate(-2deg); }
-            50% { transform: translateY(-20px) rotate(2deg); }
+            50% { transform: translateY(-2vh) rotate(2deg); }
         }
 
         #game-title {
-            font-size: 4rem;
+            font-size: clamp(2rem, 8vw, 4rem);
             font-weight: bold;
             text-shadow: 
                 3px 3px 0 #1a0a3e,
                 6px 6px 10px rgba(0, 0, 0, 0.7),
                 0 0 20px rgba(138, 43, 226, 0.8);
-            margin-bottom: 20px;
-            letter-spacing: 3px;
+            margin-bottom: 1vh;
+            letter-spacing: 0.1em;
             background: linear-gradient(45deg, #ff6ec7, #b19cd9, #7ec8e3);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -154,61 +154,64 @@
         }
 
         #subtitle {
-            font-size: 1.5rem;
+            font-size: clamp(1rem, 3vw, 1.5rem);
             color: #ffeb3b;
             text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
-            margin-bottom: 50px;
+            margin-bottom: 4vh;
             font-style: italic;
         }
 
         #start-button {
-            padding: 20px 60px;
-            font-size: 2rem;
+            padding: 2vh 8vw;
+            font-size: clamp(1.5rem, 5vw, 2rem);
             font-weight: bold;
             color: white;
             background: linear-gradient(135deg, #ff6b9d 0%, #c9184a 50%, #a4133c 100%);
-            border: 5px solid #ffeb3b;
-            border-radius: 50px;
+            border: 0.3vw solid #ffeb3b;
+            border-radius: 5vh;
             cursor: pointer;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 0.1em;
             box-shadow: 
-                0 5px 15px rgba(0, 0, 0, 0.5),
-                0 0 20px rgba(255, 235, 59, 0.5);
+                0 0.5vh 1.5vh rgba(0, 0, 0, 0.5),
+                0 0 2vh rgba(255, 235, 59, 0.5);
             transition: all 0.3s ease;
             animation: button-glow 2s ease-in-out infinite;
         }
 
         @keyframes button-glow {
-            0%, 100% { box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 235, 59, 0.5); }
-            50% { box-shadow: 0 5px 25px rgba(0, 0, 0, 0.7), 0 0 40px rgba(255, 235, 59, 0.8); }
+            0%, 100% { box-shadow: 0 0.5vh 1.5vh rgba(0, 0, 0, 0.5), 0 0 2vh rgba(255, 235, 59, 0.5); }
+            50% { box-shadow: 0 0.5vh 2.5vh rgba(0, 0, 0, 0.7), 0 0 4vh rgba(255, 235, 59, 0.8); }
         }
 
         #start-button:hover {
-            transform: scale(1.1) translateY(-5px);
+            transform: scale(1.1) translateY(-0.5vh);
             box-shadow: 
-                0 10px 30px rgba(0, 0, 0, 0.7),
-                0 0 50px rgba(255, 235, 59, 1);
+                0 1vh 3vh rgba(0, 0, 0, 0.7),
+                0 0 5vh rgba(255, 235, 59, 1);
         }
 
         #start-button:active {
-            transform: scale(1.05) translateY(-2px);
+            transform: scale(1.05) translateY(-0.2vh);
         }
 
-        @media (max-width: 768px) {
-            #game-title {
-                font-size: 2.5rem;
-            }
-            #subtitle {
-                font-size: 1.2rem;
-            }
+        @media (max-width: 650px) {
             #carl-character {
-                width: 200px;
-                height: 200px;
+                width: clamp(200px, 40vw, 350px);
+                height: clamp(200px, 40vw, 350px);
             }
+
+            #game-title {
+                font-size: clamp(2.5rem, 10vw, 5rem);
+            }
+
+            #subtitle {
+                font-size: clamp(1.3rem, 4vw, 2rem);
+            }
+
             #start-button {
-                font-size: 1.5rem;
-                padding: 15px 40px;
+                padding: 3vh 10vw;
+                font-size: clamp(1.8rem, 6vw, 2.5rem);
             }
         }
     </style>
@@ -238,6 +241,7 @@
             </div>
             <div id="hud-right">
                 <div id="highscore-display">Best Time: <span id="highscore">--:--:---</span></div>
+                <button id="pause-button" onclick="pauseGame()">⏸</button>
             </div>
         </div>
 

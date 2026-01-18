@@ -96,16 +96,17 @@ class BackgroundLayer {
 // ========== BUBBLES ==========
 class Bubble {
     constructor(x, y) {
-        this.x = x || random(width);
-        this.y = y || random(game.seaLevel - 2000, game.seaLevel + height);
+        this.x = x !== undefined ? x : random(width);
+        this.y = y !== undefined ? y : random(game.cameraY, game.cameraY + height);
         this.size = random(5, 20) * SCALE; this.speed = random(1, 3) * scaleY;
         this.wobble = random(TWO_PI); this.wobbleSpeed = random(0.02, 0.05);
     }
     update() {
         this.y -= this.speed; this.wobble += this.wobbleSpeed;
         this.x += sin(this.wobble) * 0.5 * scaleX;
-        if (this.y < game.cameraY - height) {
-            this.y = game.cameraY + height + 50 * scaleY;
+        // Respawn bubbles at bottom of screen when they go off top
+        if (this.y < game.cameraY - 50 * scaleY) {
+            this.y = game.cameraY + height + random(0, 100) * scaleY;
             this.x = random(width);
         }
     }
@@ -133,7 +134,7 @@ function drawBackground() {
 
 function drawSeabed() {
     push(); translate(0, -game.cameraY);
-    let seabedY = game.seaLevel + 100 * scaleY;
+    let seabedY = game.seaLevel + 30 * scaleY;
     fill(194, 178, 128); noStroke(); rect(0, seabedY, width, 1000 * scaleY);
     fill(180, 160, 110);
     randomSeed(12345);
