@@ -132,19 +132,34 @@ function drawBackground() {
     }
 }
 
-function drawSeabed() {
+// Draw big grey rock (called early for layering behind floor/grass)
+function drawGreyRock() {
     push(); translate(0, -game.cameraY);
     let seabedY = game.seaLevel + 30 * scaleY;
-    fill(194, 178, 128); noStroke(); rect(0, seabedY, width, 1000 * scaleY);
-    fill(180, 160, 110);
-    randomSeed(12345);
-    for (let i = 0; i < width; i += 30 * scaleX) {
-        let x = i + random(-10, 10) * scaleX;
-        let y = seabedY + random(10, 40) * scaleY;
-        ellipse(x, y, random(20, 40) * SCALE, random(15, 30) * SCALE);
-    }
+    
+    // Big grey rock sticking out of the ocean floor
+    fill(120, 120, 130);
+    noStroke();
+    randomSeed(99999);
+    let bigRockX = width / 2 + random(-200, 200) * scaleX;
+    let bigRockY = seabedY + 5 * scaleY; // Slightly raised
+    ellipse(bigRockX, bigRockY, 120 * SCALE, 90 * SCALE);
+    // Shadow detail on big rock
+    fill(90, 90, 100);
+    ellipse(bigRockX + 20 * scaleX, bigRockY + 15 * scaleY, 40 * SCALE, 30 * SCALE);
+    
+    randomSeed(frameCount);
+    pop();
+}
+
+// Draw grass layer (called before seabed for layering)
+function drawSeabedGrass() {
+    push(); translate(0, -game.cameraY);
+    let seabedY = game.seaLevel + 30 * scaleY;
+    
+    // Grass/seaweed (increased density)
     randomSeed(67890);
-    for (let i = 0; i < width; i += 80 * scaleX) {
+    for (let i = 0; i < width; i += 50 * scaleX) {
         let x = i + random(-20, 20) * scaleX;
         stroke(50, 100, 50); strokeWeight(4 * SCALE); noFill(); beginShape();
         for (let j = 0; j < 5; j++) {
@@ -153,6 +168,93 @@ function drawSeabed() {
         }
         endShape();
     }
+    
+    // Additional shorter grass
+    randomSeed(11111);
+    for (let i = 0; i < width; i += 35 * scaleX) {
+        let x = i + random(-15, 15) * scaleX;
+        stroke(60, 120, 60); strokeWeight(3 * SCALE); noFill(); beginShape();
+        for (let j = 0; j < 3; j++) {
+            let swayX = sin(frameCount * 0.03 + i * 0.5) * 8 * scaleX;
+            vertex(x + swayX, seabedY - j * 15 * scaleY);
+        }
+        endShape();
+    }
+    
+    randomSeed(frameCount);
+    pop();
+}
+
+function drawSeabed() {
+    push(); translate(0, -game.cameraY);
+    let seabedY = game.seaLevel + 30 * scaleY;
+    
+    // Main seabed floor
+    fill(194, 178, 128); noStroke(); rect(0, seabedY, width, 1000 * scaleY);
+    
+    // Rocks on surface
+    fill(180, 160, 110);
+    randomSeed(12345);
+    for (let i = 0; i < width; i += 30 * scaleX) {
+        let x = i + random(-10, 10) * scaleX;
+        let y = seabedY + random(10, 40) * scaleY;
+        ellipse(x, y, random(20, 40) * SCALE, random(15, 30) * SCALE);
+    }
+    
+    // Additional larger rocks on surface
+    fill(160, 140, 100);
+    randomSeed(54321);
+    for (let i = 0; i < width; i += 120 * scaleX) {
+        let x = i + random(-20, 20) * scaleX;
+        let y = seabedY + random(5, 25) * scaleY;
+        ellipse(x, y, random(40, 70) * SCALE, random(30, 50) * SCALE);
+    }
+    
+    // Depth-based rocks - erratic and random placement, sparser with depth
+    randomSeed(77777);
+    let depthLayers = 12; // Increased from 8 to 12 for better gradient
+    let allRocks = []; // Track rock positions to prevent overlap
+    
+    for (let layer = 0; layer < depthLayers; layer++) {
+        let baseDepth = (layer + 1) * 80 * scaleY; // Reduced spacing for more rocks
+        let spacing = 45 * scaleX * (1 + layer * 0.4); // Tighter initial spacing
+        let rockCount = floor(width / spacing);
+        
+        fill(170 - layer * 7, 150 - layer * 7, 100 - layer * 5);
+        
+        for (let i = 0; i < rockCount; i++) {
+            let attempts = 0;
+            let placed = false;
+            
+            while (!placed && attempts < 10) {
+                // Much more erratic placement
+                let x = i * spacing + random(-spacing * 0.4, spacing * 0.4) * scaleX;
+                let y = seabedY + baseDepth + random(-50, 70) * scaleY;
+                let rockSize = random(10, 40) * SCALE * (1 - layer * 0.06);
+                let rockHeight = rockSize * random(0.6, 1.2);
+                
+                // Check for collisions with existing rocks
+                let overlaps = false;
+                for (let rock of allRocks) {
+                    let dx = x - rock.x;
+                    let dy = y - rock.y;
+                    let minDist = (rockSize + rock.w) / 2 + 10 * SCALE; // Add padding
+                    if (dx * dx + dy * dy < minDist * minDist) {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                
+                if (!overlaps) {
+                    ellipse(x, y, rockSize, rockHeight);
+                    allRocks.push({x: x, y: y, w: rockSize, h: rockHeight});
+                    placed = true;
+                }
+                attempts++;
+            }
+        }
+    }
+    
     randomSeed(frameCount);
     pop();
 }

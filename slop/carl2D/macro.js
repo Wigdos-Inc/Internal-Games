@@ -48,18 +48,18 @@ const GAME_CONFIG = {
     GRACE_PERIOD_SPAWN_CHANCE: 0.5, // 50% chance to skip spawn during grace period
     
     // Enemy spawning (these will be scaled)
-    MAX_TOTAL_ENEMIES: 20,        // Hard cap on total enemies
-    get ENEMY_SAFE_RADIUS() { return 500 * SCALE; },       // Min distance from Carl for spawning enemies
-    get PLATFORM_START_SAFE_ZONE() { return 800 * SCALE; }, // No platforms spawn within this distance of start
-    get PLATFORM_CRAB_SAFE_RADIUS() { return 250 * SCALE; }, // Safe radius for crab spawning near start
+    MAX_TOTAL_ENEMIES: 20,        // Hard cap on total enemies (increased for more challenge)
+    get ENEMY_SAFE_RADIUS() { return 400 * SCALE; },       // Min distance from Carl for spawning enemies
+    get PLATFORM_START_SAFE_ZONE() { return 1000 * SCALE; }, // No platforms spawn within this distance of start (increased from 1200)
+    get PLATFORM_CRAB_SAFE_RADIUS() { return 2000 * SCALE; }, // Safe radius for crab spawning near start
     
     // Spawn chances - floating enemies
-    SPAWN_CHANCE_FLOATING_MIN: 0.80,  // Spawn chance at 0 enemies
-    SPAWN_CHANCE_FLOATING_MAX: 0.995, // Spawn chance at max enemies
+    SPAWN_CHANCE_FLOATING_MIN: 0.20,  // Spawn chance at 0 enemies (lowered for much more frequent spawns)
+    SPAWN_CHANCE_FLOATING_MAX: 0.50, // Spawn chance at max enemies (lowered for much more frequent spawns)
     
     // Spawn chances - side enemies  
-    SPAWN_CHANCE_SIDE_MIN: 0.75,      // Spawn chance at 0 enemies
-    SPAWN_CHANCE_SIDE_MAX: 0.99,      // Spawn chance at max enemies
+    SPAWN_CHANCE_SIDE_MIN: 0.20,      // Spawn chance at 0 enemies (lowered for much more frequent spawns)
+    SPAWN_CHANCE_SIDE_MAX: 0.50,      // Spawn chance at max enemies (lowered for much more frequent spawns)
     
     // Platform generation
     get PLATFORM_GAP_MIN() { return 300 * scaleY; },        // Min vertical gap between platform clusters
@@ -69,7 +69,7 @@ const GAME_CONFIG = {
     get PLATFORM_MIN_WIDTH_FOR_SPAWNS() { return 150 * scaleX; }, // Platforms must be this wide for crabs/powerups
     
     // Enemy off-screen removal
-    ENEMY_REMOVAL_DISTANCE: 2.5,  // Remove enemies this many screen heights away
+    ENEMY_REMOVAL_DISTANCE: 2,  // Remove enemies this many screen heights away (increased for ahead-spawning)
     
     // Platform/powerup spawn chances
     CRAB_CHANCE_2: 0.05,          // 5% chance for 2 crabs
@@ -80,12 +80,13 @@ const GAME_CONFIG = {
 
 // ========== ENEMY LIMITS ==========
 const ENEMY_LIMITS = {
-    'fishhook': 3,
-    'mine': 4,
-    'bomb': 3,
-    'jellyfish': 5,
-    'shark': 3,
-    'urchin': 3
+    'fishhook': 5,
+    'mine': 5,
+    'bomb': 5,
+    'jellyfish': 3,
+    'sidejellyfish': 8,  // Separate limit for side-spawning jellyfish
+    'shark': 5,
+    'urchin': 5
 };
 
 // ========== CARL PHYSICS ==========
@@ -123,8 +124,8 @@ const CONTROLS = {
 
 // ========== ENEMY SPEEDS ==========
 const ENEMY_CONFIG = {
-    get CRAB_SPEED() { return 1.5 * scaleX; },
-    get SHARK_SPEED() { return 4 * scaleX; },
-    get SHARK_ACCELERATION() { return 0.3 * scaleX; },
-    get BOMB_SPEED() { return 3 * scaleX; }
+    get CRAB_SPEED() { return 3.0 * scaleX; },
+    get SHARK_SPEED() { return 8 * scaleX; },
+    get SHARK_ACCELERATION() { return 0.6 * scaleX; },
+    get BOMB_SPEED() { return 6 * scaleX; }
 };

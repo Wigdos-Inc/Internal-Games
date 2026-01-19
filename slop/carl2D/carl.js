@@ -21,7 +21,8 @@ let game = {
     bestTime: null,
     frameCount: 0,
     flyingUp: false,
-    flyTimer: 0
+    flyTimer: 0,
+    lastSideEnemySpawnTime: 0  // Track last spawn time to prevent bunching
 };
 
 let carl;
@@ -59,29 +60,24 @@ class Carl {
             
             // Touch/mouse controls - move Carl towards touch position
             if (mouseIsPressed || touches.length > 0) {
-                let targetX = mouseX;
-                let targetY = mouseY + game.cameraY; // Convert screen Y to world Y
-                
-                // If using touches, use first touch
-                if (touches.length > 0) {
-                    targetX = touches[0].x;
-                    targetY = touches[0].y + game.cameraY;
-                }
-                
-                // Check if the touch/click is on the pause button or HUD
+                // Check if tapping the pause button - if so, don't move
                 let pauseButton = document.getElementById('pause-button');
-                let hud = document.getElementById('hud');
                 let clickedElement = document.elementFromPoint(mouseX, mouseY);
-                
-                // Don't move Carl if clicking on pause button or HUD elements
-                let isClickingUI = clickedElement && (
+                let isClickingPauseButton = clickedElement && (
                     clickedElement === pauseButton || 
-                    pauseButton.contains(clickedElement) ||
-                    clickedElement === hud ||
-                    hud.contains(clickedElement)
+                    pauseButton.contains(clickedElement)
                 );
                 
-                if (!isClickingUI) {
+                if (!isClickingPauseButton) {
+                    let targetX = mouseX;
+                    let targetY = mouseY + game.cameraY; // Convert screen Y to world Y
+                    
+                    // If using touches, use first touch
+                    if (touches.length > 0) {
+                        targetX = touches[0].x;
+                        targetY = touches[0].y + game.cameraY;
+                    }
+                    
                     // Calculate direction to target
                     let dx = targetX - this.x;
                     let dy = targetY - this.y;
@@ -354,6 +350,8 @@ function draw() {
     
     drawBackground();
     for (let layer of background.layers) { layer.update(); layer.draw(); }
+    drawGreyRock();
+    drawSeabedGrass();
     drawSeabed();
     for (let bubble of background.bubbles) { bubble.update(); bubble.draw(); }
     

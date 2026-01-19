@@ -103,6 +103,11 @@ function generatePlatforms() {
             break;
         }
         
+        // Don't generate platforms too close to starting position (ocean floor)
+        if (lastPlatformY > game.seaLevel - GAME_CONFIG.PLATFORM_START_SAFE_ZONE) {
+            continue;
+        }
+        
         let platformCount = floor(random(1, 3));
         for (let i = 0; i < platformCount; i++) {
             let platformWidth = random(GAME_CONFIG.PLATFORM_WIDTH_MIN, GAME_CONFIG.PLATFORM_WIDTH_MAX);
@@ -127,7 +132,9 @@ class Enemy {
     update() {
         this.animFrame += 0.1;
         // Remove enemies far off-screen to allow new ones to spawn
-        if (abs(this.y - game.cameraY) > height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
+        // Measure from center of screen for even distribution
+        let screenCenterY = game.cameraY + height / 2;
+        if (abs(this.y - screenCenterY) > height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
     }
     checkCollision(carl) {
         let d = dist(this.x, this.y, carl.x, carl.y);
@@ -163,15 +170,18 @@ class Jellyfish extends Enemy {
 class Crab extends Enemy {
     constructor(x, y, leftBound, rightBound) {
         super('crab', x, y);
-        this.size = 35 * SCALE; this.speed = ENEMY_CONFIG.CRAB_SPEED;
+        this.size = 35 * SCALE; 
+        this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
+        this.speed = ENEMY_CONFIG.CRAB_SPEED * this.speedMultiplier;
         this.direction = random() > 0.5 ? 1 : -1;
         this.leftBound = leftBound; this.rightBound = rightBound;
     }
     update() {
         this.animFrame += 0.1;
-        // Only remove crabs when they're far BELOW the camera (already passed)
+        // Only remove crabs when they're far BELOW screen center (already passed)
         // Don't remove them when they're above (not yet reached)
-        if (this.y - game.cameraY > height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
+        let screenCenterY = game.cameraY + height / 2;
+        if (this.y > screenCenterY + height * GAME_CONFIG.ENEMY_REMOVAL_DISTANCE) this.toRemove = true;
         
         this.x += this.speed * this.direction;
         if (this.x <= this.leftBound + 20 || this.x >= this.rightBound - 20) this.direction *= -1;
@@ -257,13 +267,20 @@ class Urchin extends Enemy {
 class SideJellyfish extends Enemy {
     constructor(x, y, direction) {
         super('sidejellyfish', x, y);
-        this.size = 45 * SCALE; this.speed = 2 * scaleX; this.direction = direction;
+        this.size = 45 * SCALE; 
+        this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
+        this.speed = 4 * scaleX * this.speedMultiplier;
+        this.direction = direction;
         this.bobAmount = 40 * scaleY; this.baseY = y;
     }
     update() {
         super.update();
-        this.x += this.speed * this.direction;
+        // Add speed boost based on Carl's vertical speed
+        let carlVerticalSpeed = Math.abs(carl.vy);
+        let speedBoost = carlVerticalSpeed > 5 ? (carlVerticalSpeed - 5) * 0.15 * scaleX : 0;
+        this.x += (this.speed + speedBoost) * this.direction;
         this.y = this.baseY + sin(this.animFrame * 3) * this.bobAmount;
+        // Despawn when off-screen horizontally OR vertically
         if (this.x < -100 || this.x > width + 100) this.toRemove = true;
     }
     draw() {
@@ -286,11 +303,18 @@ class SideJellyfish extends Enemy {
 class Shark extends Enemy {
     constructor(x, y, direction) {
         super('shark', x, y);
-        this.size = 60 * SCALE; this.speed = ENEMY_CONFIG.SHARK_SPEED; this.direction = direction;
+        this.size = 60 * SCALE; 
+        this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
+        this.speed = ENEMY_CONFIG.SHARK_SPEED * this.speedMultiplier;
+        this.direction = direction;
     }
     update() {
         super.update();
-        this.x += this.speed * this.direction;
+        // Add speed boost based on Carl's vertical speed
+        let carlVerticalSpeed = Math.abs(carl.vy);
+        let speedBoost = carlVerticalSpeed > 5 ? (carlVerticalSpeed - 5) * 0.15 * scaleX : 0;
+        this.x += (this.speed + speedBoost) * this.direction;
+        // Despawn when off-screen horizontally OR vertically
         if (this.x < -150 || this.x > width + 150) this.toRemove = true;
     }
     draw() {
@@ -318,7 +342,10 @@ class Shark extends Enemy {
 class Bomb extends Enemy {
     constructor(x, y, direction) {
         super('bomb', x, y);
-        this.size = 70 * SCALE; this.speed = ENEMY_CONFIG.BOMB_SPEED; this.direction = direction;
+        this.size = 70 * SCALE; 
+        this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
+        this.speed = ENEMY_CONFIG.BOMB_SPEED * this.speedMultiplier;
+        this.direction = direction;
         this.exploding = false; this.explosionTimer = 0; this.maxExplosionTime = 30;
     }
     update() {
@@ -327,7 +354,10 @@ class Bomb extends Enemy {
             this.explosionTimer++;
             if (this.explosionTimer >= this.maxExplosionTime) this.toRemove = true;
         } else {
-            this.x += this.speed * this.direction;
+            // Add speed boost based on Carl's vertical speed
+            let carlVerticalSpeed = Math.abs(carl.vy);
+            let speedBoost = carlVerticalSpeed > 5 ? (carlVerticalSpeed - 5) * 0.15 * scaleX : 0;
+            this.x += (this.speed + speedBoost) * this.direction;
             if (this.x < -150 || this.x > width + 150) this.toRemove = true;
         }
     }
@@ -416,41 +446,87 @@ function spawnFloatingEnemies() {
     }
     
     let maxEnemies = GAME_CONFIG.MAX_TOTAL_ENEMIES;
-    // Hard cap - no spawning if at max
-    if (enemies.length >= maxEnemies) {
+    // Hard cap - no spawning if at max (exclude crabs from count)
+    let nonCrabEnemies = enemies.filter(e => e.type !== 'crab').length;
+    if (nonCrabEnemies >= maxEnemies) {
         return;
     }
     
     // Scale spawn chance based on enemy count (more enemies = harder to spawn)
-    let enemyRatio = enemies.length / maxEnemies;
-    let spawnChance = map(enemyRatio, 0, 1, GAME_CONFIG.SPAWN_CHANCE_FLOATING_MIN, GAME_CONFIG.SPAWN_CHANCE_FLOATING_MAX);
+    let enemyRatio = nonCrabEnemies / maxEnemies;
+    let baseSpawnChance = map(enemyRatio, 0, 1, GAME_CONFIG.SPAWN_CHANCE_FLOATING_MIN, GAME_CONFIG.SPAWN_CHANCE_FLOATING_MAX);
+    
+    // Gradual ramp-up: reduce spawn chance at game start
+    let timeMultiplier = 1.0;
+    if (game.currentTime < 2) {
+        timeMultiplier = 10.0; // 10% spawn chance (0-2 seconds)
+    } else if (game.currentTime < 5) {
+        timeMultiplier = 4.0; // 25% spawn chance (2-5 seconds)
+    } else if (game.currentTime < 10) {
+        timeMultiplier = 1.67; // 60% spawn chance (5-10 seconds)
+    }
+    
+    // Increase spawn rate when Carl is moving fast upward
+    let carlVerticalSpeed = Math.abs(carl.vy);
+    let speedMultiplier = 1.0;
+    if (carlVerticalSpeed > 3) {
+        // For every 2 units of vertical speed, increase spawn rate dramatically
+        speedMultiplier = 1.0 + (carlVerticalSpeed - 3) * 0.08;
+        speedMultiplier = Math.min(speedMultiplier, 3.5); // Cap at 3.5x spawn rate
+    }
+    // Divide by multipliers to lower the threshold and increase spawn rate
+    let spawnChance = (baseSpawnChance * timeMultiplier) / speedMultiplier;
     
     if (random() > spawnChance) {
         let safeRadius = GAME_CONFIG.ENEMY_SAFE_RADIUS;
         let spawnX, spawnY;
         let attempts = 0;
+        
+        // Spawn ahead of Carl's movement direction
+        let verticalOffset = 0;
+        if (carl.vy < -3) {
+            // Moving up - spawn further above screen
+            verticalOffset = -height * map(Math.abs(carl.vy), 3, 20, 0.3, 1.0);
+        } else if (carl.vy > 3) {
+            // Moving down - spawn further below screen
+            verticalOffset = height * map(carl.vy, 3, 20, 0.3, 1.0);
+        }
+        
         do {
-            spawnY = game.cameraY - height / 2 + random(-height, -height / 2);
+            // Spawn in upper portion of screen with wider variation
+            spawnY = game.cameraY + random(-height * 0.2, height * 0.8) + verticalOffset;
             spawnX = random(width);
             attempts++;
         } while (dist(spawnX, spawnY, carl.x, carl.y) < safeRadius && attempts < 10);
         
+        // Don't spawn if final position is in surface safe zone
+        if (spawnY < game.surfaceGoal + 1000) {
+            return;
+        }
+        
+        // Don't spawn if below or too close to ocean floor (sea level)
+        let oceanFloorSafeZone = game.seaLevel - 600 * scaleY; // 600 units above floor (tripled from 200)
+        if (spawnY > oceanFloorSafeZone) {
+            return;
+        }
+        
         if (attempts < 10) {
             let enemyType = floor(random(3));
             if (enemyType === 0) {
-                // Check jellyfish limit (max 5)
-                if (countEnemyType('jellyfish') < ENEMY_LIMITS['jellyfish']) {
+                // Check jellyfish limit - only count regular jellyfish, not side jellyfish
+                let regularJellyfishCount = enemies.filter(e => e.type === 'jellyfish').length;
+                if (regularJellyfishCount < ENEMY_LIMITS['jellyfish']) {
                     enemies.push(new Jellyfish(spawnX, spawnY));
                 }
             } else if (enemyType === 1) {
-                // Check small mine limit (max 4)
-                if (countEnemyType('mine') < ENEMY_LIMITS['mine']) {
-                    enemies.push(new Mine(spawnX, spawnY));
-                }
-            } else {
                 // Check urchin limit (max 3)
                 if (countEnemyType('urchin') < ENEMY_LIMITS['urchin']) {
                     enemies.push(new Urchin(spawnX, spawnY));
+                }
+            } else {
+                // Check small mine limit (max 4)
+                if (countEnemyType('mine') < ENEMY_LIMITS['mine']) {
+                    enemies.push(new Mine(spawnX, spawnY));
                 }
             }
         }
@@ -458,6 +534,14 @@ function spawnFloatingEnemies() {
 }
 
 function spawnSideEnemies() {
+    // Cooldown check to prevent bunching
+    let now = Date.now();
+    let carlSpeed = Math.abs(carl.vy);
+    let cooldown = carlSpeed > 10 ? 50 : 150; // Much shorter cooldown for more spawns
+    if (now - game.lastSideEnemySpawnTime < cooldown) {
+        return;
+    }
+    
     // Grace period: reduced spawn rate in first N seconds
     if (game.currentTime < GAME_CONFIG.GRACE_PERIOD_SECONDS && random() > GAME_CONFIG.GRACE_PERIOD_SPAWN_CHANCE) {
         return;
@@ -469,25 +553,78 @@ function spawnSideEnemies() {
     }
     
     let maxEnemies = GAME_CONFIG.MAX_TOTAL_ENEMIES;
-    // Hard cap - no spawning if at max
-    if (enemies.length >= maxEnemies) {
+    // Hard cap - no spawning if at max (exclude crabs from count)
+    let nonCrabEnemies = enemies.filter(e => e.type !== 'crab').length;
+    if (nonCrabEnemies >= maxEnemies) {
         return;
     }
     
     // Scale spawn chance based on enemy count (more enemies = harder to spawn)
-    let enemyRatio = enemies.length / maxEnemies;
-    let spawnChance = map(enemyRatio, 0, 1, GAME_CONFIG.SPAWN_CHANCE_SIDE_MIN, GAME_CONFIG.SPAWN_CHANCE_SIDE_MAX);
+    let enemyRatio = nonCrabEnemies / maxEnemies;
+    let baseSpawnChance = map(enemyRatio, 0, 1, GAME_CONFIG.SPAWN_CHANCE_SIDE_MIN, GAME_CONFIG.SPAWN_CHANCE_SIDE_MAX);
+    
+    // Gradual ramp-up: reduce spawn chance at game start
+    let timeMultiplier = 1.0;
+    if (game.currentTime < 2) {
+        timeMultiplier = 10.0; // 10% spawn chance (0-2 seconds)
+    } else if (game.currentTime < 5) {
+        timeMultiplier = 4.0; // 25% spawn chance (2-5 seconds)
+    } else if (game.currentTime < 10) {
+        timeMultiplier = 1.67; // 60% spawn chance (5-10 seconds)
+    }
+    
+    // Increase spawn rate when Carl is moving fast vertically
+    let carlVerticalSpeed = Math.abs(carl.vy);
+    let speedMultiplier = 1.0;
+    if (carlVerticalSpeed > 3) {
+        // For every 2 units of vertical speed, increase spawn rate dramatically
+        speedMultiplier = 1.0 + (carlVerticalSpeed - 3) * 0.08;
+        speedMultiplier = Math.min(speedMultiplier, 3.5); // Cap at 3.5x spawn rate
+    }
+    // Divide by multipliers to lower the threshold and increase spawn rate
+    let spawnChance = (baseSpawnChance * timeMultiplier) / speedMultiplier;
     
     if (random() > spawnChance) {
+        // Update spawn time to prevent immediate next spawn
+        game.lastSideEnemySpawnTime = Date.now();
+        
         let safeRadius = GAME_CONFIG.ENEMY_SAFE_RADIUS;
-        let spawnY = game.cameraY + random(-height * 0.3, height * 0.3);
+        
+        // Base spawn at screen center for better distribution
+        let screenCenterY = game.cameraY + height / 2;
+        
+        // Spawn ahead based on Carl's vertical movement direction
+        let verticalOffset = 0;
+        if (carl.vy < -3) {
+            // Moving up - spawn above screen proportional to speed
+            verticalOffset = -height * map(Math.abs(carl.vy), 3, 20, 0.5, 1.8);
+        } else if (carl.vy > 3) {
+            // Moving down - spawn below screen proportional to speed
+            verticalOffset = height * map(carl.vy, 3, 20, 0.5, 1.8);
+        }
+        
+        // When stationary: spawn around center ±50% of screen height
+        // When fast: spawn ahead with offset
+        let spawnY = screenCenterY + random(-height * 0.5, height * 0.5) + verticalOffset;
+        
+        // Don't spawn if final position is in surface safe zone
+        if (spawnY < game.surfaceGoal + 1000) {
+            return;
+        }
+        
+        // Don't spawn if below or too close to ocean floor (sea level)
+        let oceanFloorSafeZone = game.seaLevel - 600 * scaleY; // 600 units above floor (tripled from 200)
+        if (spawnY > oceanFloorSafeZone) {
+            return;
+        }
         
         if (Math.abs(spawnY - carl.y) < safeRadius) {
             return;
         }
         
         let direction = random() > 0.5 ? 1 : -1;
-        let spawnX = direction > 0 ? -100 : width + 100;
+        // Use screen-width relative spawn positions
+        let spawnX = direction > 0 ? -100 * scaleX : width + 100 * scaleX;
         let enemyType = floor(random(4));
         
         if (enemyType === 3) {
@@ -505,8 +642,8 @@ function spawnSideEnemies() {
                 return;
             }
             if (enemyType === 0) {
-                // Side jellyfish has same limit as regular jellyfish (max 5)
-                if (countEnemyType('jellyfish') < ENEMY_LIMITS['jellyfish']) {
+                // Side jellyfish has its own separate limit
+                if (countEnemyType('sidejellyfish') < ENEMY_LIMITS['sidejellyfish']) {
                     enemies.push(new SideJellyfish(spawnX, spawnY, direction));
                 }
             } else if (enemyType === 1) {
