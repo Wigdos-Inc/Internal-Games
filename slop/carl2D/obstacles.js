@@ -73,6 +73,9 @@ class Platform {
     }
     
     update() {
+        // Don't despawn boss platforms
+        if (this.bossPlatform) return;
+        
         if (this.y - game.cameraY > height + 200) this.toRemove = true;
     }
     

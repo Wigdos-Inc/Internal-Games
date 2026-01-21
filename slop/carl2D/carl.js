@@ -22,7 +22,14 @@ let game = {
     frameCount: 0,
     flyingUp: false,
     flyTimer: 0,
-    lastSideEnemySpawnTime: 0  // Track last spawn time to prevent bunching
+    lastSideEnemySpawnTime: 0,  // Track last spawn time to prevent bunching
+    bossMode: false,  // Boss fight active
+    bossSpawned: false,  // Has boss been created
+    boss: null,  // Reference to boss enemy
+    bossIntroActive: false,  // Boss intro cutscene active
+    bossIntroTimer: 0,  // Timer for boss intro
+    musicFading: false,  // Is main music fading out
+    musicFadeAmount: 1.0  // Current volume for fade
 };
 
 let carl;
@@ -30,7 +37,7 @@ let enemies = [];
 let platforms = [];
 let powerups = [];
 let particles = [];
-let background = { layers: [], bubbles: [] };
+let background = { layers: [], bubbles: [], clouds: [] };
 let keys = {};
 let spacePressed = false;
 let sounds = { backgroundMusic: null, jump: null, boost: null, hit: null, death: null, powerup: null, win: null, loaded: false, play(s) { if (this[s] && this.loaded) { try { this[s].play(); } catch (e) {} } }, stop(s) { if (this[s] && this.loaded) { try { this[s].stop(); } catch (e) {} } }, loop(s) { if (this[s] && this.loaded) { try { this[s].loop(); } catch (e) {} } }, pause(s) { if (this[s] && this.loaded) { try { this[s].pause(); } catch (e) {} } } };
@@ -57,6 +64,9 @@ class Carl {
     update() {
         if (game.state === 'playing') {
             let accel = this.acceleration * this.speedBoost;
+            
+            // Check if Carl is above water in boss mode
+            let isAboveWater = game.bossMode && this.y < game.surfaceGoal;
             
             // Touch/mouse controls - move Carl towards touch position
             if (mouseIsPressed || touches.length > 0) {
@@ -89,23 +99,42 @@ class Carl {
                         else this.vx += accel;
                     }
                     
-                    // Vertical movement  
+                    // Vertical movement - disable upward acceleration if above water
                     if (Math.abs(dy) > 10 * SCALE) { // Dead zone
-                        if (dy < 0) this.vy -= accel;
-                        else this.vy += accel;
+                        if (dy < 0 && !isAboveWater) this.vy -= accel; // Only allow upward acceleration underwater
+                        else if (dy > 0) this.vy += accel; // Always allow downward acceleration
                     }
                 }
             } else {
                 // Keyboard controls
                 if (CONTROLS.LEFT.some(k => keys[k])) this.vx -= accel;
                 if (CONTROLS.RIGHT.some(k => keys[k])) this.vx += accel;
-                if (CONTROLS.UP.some(k => keys[k])) this.vy -= accel;
+                if (CONTROLS.UP.some(k => keys[k]) && !isAboveWater) this.vy -= accel; // Disable upward acceleration above water
                 if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accel;
             }
         }
         
-        this.vx *= this.friction * this.waterResistance;
-        this.vy *= this.friction * this.waterResistance;
+        // Check if Carl is above water in boss mode for physics adjustments
+        let isAboveWater = game.bossMode && this.y < game.surfaceGoal;
+        
+        // Apply friction and water resistance only when underwater
+        if (!isAboveWater) {
+            this.vx *= this.friction * this.waterResistance;
+            this.vy *= this.friction * this.waterResistance;
+        } else {
+            // Air physics when above water
+            // Apply stronger deceleration on platforms, lighter in air
+            if (this.onPlatform) {
+                // On platform - strong friction to stop quickly
+                this.vx *= 0.85;
+            } else {
+                // In air - lighter friction for momentum preservation
+                this.vx *= 0.96;
+            }
+            // Almost no vertical air resistance
+            this.vy *= 0.995;
+        }
+        
         this.vy += this.gravity;
         
         let maxSpd = this.maxSpeed * this.speedBoost;
@@ -135,17 +164,9 @@ class Carl {
         game.altitude = Math.abs(this.y - game.seaLevel);
         if (game.altitude > game.highestAltitude) game.highestAltitude = game.altitude;
         
-        if (this.y <= game.surfaceGoal && !game.flyingUp) {
-            game.flyingUp = true;
-            game.flyTimer = 0;
-            this.vy = -15;
-        }
-        
-        if (game.flyingUp) {
-            game.flyTimer++;
-            this.vy = -15;
-            this.rotation += 0.1;
-            if (game.flyTimer > 120) winGame();
+        if (this.y <= game.surfaceGoal && !game.bossMode) {
+            game.bossMode = true;
+            this.vy = 0;
         }
         
         game.cameraY = lerp(game.cameraY, this.y - height / 2, 0.1);
@@ -247,7 +268,7 @@ class Carl {
                 let y1 = sin(angle) * (this.size * 0.9 + shieldPulse);
                 let x2 = cos(angle + TWO_PI / 6) * (this.size * 0.9 + shieldPulse);
                 let y2 = sin(angle + TWO_PI / 6) * (this.size * 0.9 + shieldPulse);
-                line(x1, y1, x2, y2);
+                line(x1, y1, x2, x2);
             }
             pop();
         }
@@ -354,13 +375,167 @@ function draw() {
     drawSeabedGrass();
     drawSeabed();
     for (let bubble of background.bubbles) { bubble.update(); bubble.draw(); }
+    // Update and draw clouds above water
+    for (let cloud of background.clouds) { cloud.update(); cloud.draw(); }
     
     if (game.state === 'playing') {
+        // Handle music fading when approaching surface
+        if (!game.bossMode && !game.musicFading) {
+            let distToSurface = carl.y - game.surfaceGoal;
+            if (distToSurface < 1000 * scaleY && distToSurface > 0) {
+                game.musicFading = true;
+            }
+        }
+        
+        // Fade out main music as Carl approaches surface
+        if (game.musicFading && !game.bossMode) {
+            let distToSurface = carl.y - game.surfaceGoal;
+            if (distToSurface > 0) {
+                game.musicFadeAmount = map(distToSurface, 0, 1000 * scaleY, 0, 1);
+                game.musicFadeAmount = constrain(game.musicFadeAmount, 0, 1);
+                if (window.gameMusic && window.gameMusicLoaded) {
+                    window.gameMusic.setVolume(0.5 * game.musicFadeAmount);
+                }
+            }
+        }
+        
+        // Boss intro sequence
+        if (game.bossMode && !game.bossIntroActive && !game.bossSpawned) {
+            game.bossIntroActive = true;
+            game.bossIntroTimer = 0;
+            // Stop main music completely
+            if (window.gameMusic && window.gameMusicLoaded) {
+                window.gameMusic.stop();
+            }
+            // Freeze Carl
+            carl.vx = 0;
+            carl.vy = 0;
+        }
+        
+        // Boss mode initialization
+        if (game.bossMode && !game.bossSpawned) {
+            // During intro, animate the sun coming down
+            if (game.bossIntroActive) {
+                game.bossIntroTimer++;
+                
+                // Clear all enemies below the surface (only once at start)
+                if (game.bossIntroTimer === 1) {
+                    for (let i = enemies.length - 1; i >= 0; i--) {
+                        if (enemies[i].y > game.surfaceGoal) {
+                            enemies.splice(i, 1);
+                        }
+                    }
+                    
+                    // Clear all platforms below the surface
+                    for (let i = platforms.length - 1; i >= 0; i--) {
+                        if (platforms[i].y > game.surfaceGoal) {
+                            platforms.splice(i, 1);
+                        }
+                    }
+                    
+                    // Create manual boss platforms above water
+                    createBossPlatforms();
+                    
+                    // Create the sun boss off-screen above
+                    let bossX = width / 2;
+                    let bossY = game.surfaceGoal - height; // Start way above
+                    game.boss = new SunBoss(bossX, bossY);
+                    game.boss.introMode = true; // Special flag for intro
+                    game.boss.targetY = game.surfaceGoal - 400 * scaleY; // Target position
+                    enemies.push(game.boss);
+                    
+                    // Reset last platform Y for boss platforms
+                    lastPlatformY = game.surfaceGoal;
+                }
+                
+                // Animate sun descending
+                if (game.boss && game.boss.introMode) {
+                    let descendSpeed = 3 * scaleY;
+                    game.boss.y += descendSpeed;
+                    game.boss.baseY = game.boss.y;
+                    
+                    // Check if sun reached target position
+                    if (game.boss.y >= game.boss.targetY) {
+                        game.boss.y = game.boss.targetY;
+                        game.boss.baseY = game.boss.targetY;
+                        game.boss.introMode = false;
+                        game.bossSpawned = true;
+                        game.bossIntroActive = false;
+                        
+                        // Start boss music
+                        if (window.bossMusic && window.bossMusicLoaded) {
+                            window.bossMusic.setVolume(0.5);
+                            window.bossMusic.loop();
+                        }
+                        
+                        // Give player a moment before attacks start
+                        game.boss.attackCooldown = 60; // 1 second delay
+                    }
+                }
+                
+                // Keep Carl frozen during intro
+                carl.vx = 0;
+                carl.vy = 0;
+            }
+        }
+        
+        // Prevent Carl from going too far below the surface in boss mode
+        if (game.bossMode) {
+            let maxDepth = game.surfaceGoal + 500 * scaleY; // Increased from 300 to 500
+            if (carl.y > maxDepth) {
+                carl.y = maxDepth;
+                carl.vy = min(carl.vy, 0); // Can't go down further
+            }
+            
+            // Add buoyancy force when Carl goes deeper than a threshold below the surface
+            let buoyancyThreshold = game.surfaceGoal + 350 * scaleY; // Increased from 150 to 350 - allow deeper diving
+            if (carl.y > buoyancyThreshold) {
+                // Calculate how far below the threshold Carl is
+                let depthBelowThreshold = carl.y - buoyancyThreshold;
+                // Apply upward buoyancy force that gets stronger the deeper Carl goes past the threshold
+                let buoyancyForce = depthBelowThreshold * 0.03;
+                carl.vy -= buoyancyForce;
+                
+                // Add visual feedback - bubbles rising from Carl when in buoyancy zone
+                if (frameCount % 5 === 0) {
+                    particles.push(new Particle(carl.x + random(-20, 20) * SCALE, carl.y, 'boost'));
+                }
+            }
+            
+            // Apply proper gravity and physics above water
+            if (carl.y < game.surfaceGoal) {
+                // Carl is above water - apply very weak gravity for higher jumps
+                let airGravity = 0.2 * scaleY; // Reduced from 0.4 to 0.2 for even higher jumps
+                carl.vy += airGravity;
+                
+                // Higher velocity cap for bigger jumps
+                if (carl.vy < -20 * scaleY) {
+                    carl.vy = -20 * scaleY; // Cap at -20
+                }
+            }
+        }
+        
         carl.update();
-        generatePlatforms();
-        spawnFloatingEnemies();
-        spawnSideEnemies();
-        spawnSideEnemies();
+        
+        // Freeze Carl completely during boss intro
+        if (game.bossIntroActive) {
+            carl.vx = 0;
+            carl.vy = 0;
+        }
+        
+        // Generate platforms differently in boss mode
+        if (game.bossMode) {
+            generateBossPlatforms();
+        } else {
+            generatePlatforms();
+        }
+        
+        // Don't spawn regular enemies in boss mode
+        if (!game.bossMode) {
+            spawnFloatingEnemies();
+            spawnSideEnemies();
+            spawnSideEnemies();
+        }
         
         for (let i = platforms.length - 1; i >= 0; i--) {
             platforms[i].update();
@@ -408,6 +583,15 @@ function initGame() {
     game.startTime = Date.now();
     game.currentTime = 0;
     
+    // Reset all boss-related state
+    game.bossMode = false;
+    game.bossSpawned = false;
+    game.boss = null;
+    game.bossIntroActive = false;
+    game.bossIntroTimer = 0;
+    game.musicFading = false;
+    game.musicFadeAmount = 1.0;
+    
     let saved = localStorage.getItem('carlBestTime');
     if (saved) game.bestTime = parseFloat(saved);
     
@@ -422,6 +606,9 @@ function initGame() {
     background.bubbles = [];
     // Spawn bubbles across the full screen height around the starting position
     for (let i = 0; i < 50; i++) background.bubbles.push(new Bubble(random(width), random(game.cameraY, game.cameraY + height)));
+    background.clouds = [];
+    // Spawn clouds above the water surface
+    for (let i = 0; i < 15; i++) background.clouds.push(new Cloud());
     document.getElementById('pause-menu').classList.add('hidden');
     document.getElementById('gameover-menu').classList.add('hidden');
     // Don't start background music here - will be started when game actually begins
@@ -462,7 +649,12 @@ function pauseGame() {
         game.state = 'paused';
         game.pauseStartTime = Date.now();
         document.getElementById('pause-menu').classList.remove('hidden');
-        sounds.pause('backgroundMusic');
+        // Pause whichever music is currently playing
+        if (game.bossMode && window.bossMusic && window.bossMusicLoaded) {
+            window.bossMusic.pause();
+        } else if (window.gameMusic && window.gameMusicLoaded) {
+            window.gameMusic.pause();
+        }
         noLoop();
     }
 }
@@ -475,14 +667,24 @@ function resumeGame() {
         
         game.state = 'playing';
         document.getElementById('pause-menu').classList.add('hidden');
-        sounds.play('backgroundMusic');
+        // Resume whichever music should be playing
+        if (game.bossMode && window.bossMusic && window.bossMusicLoaded) {
+            window.bossMusic.play();
+        } else if (window.gameMusic && window.gameMusicLoaded) {
+            window.gameMusic.play();
+        }
         loop();
     }
 }
 
 function gameOver() {
     game.state = 'gameover';
-    sounds.stop('backgroundMusic');
+    // Stop whichever music is playing
+    if (game.bossMode && window.bossMusic && window.bossMusicLoaded) {
+        window.bossMusic.stop();
+    } else if (window.gameMusic && window.gameMusicLoaded) {
+        window.gameMusic.stop();
+    }
     sounds.play('death');
     
     let minutes = Math.floor(game.currentTime / 60);
@@ -501,7 +703,10 @@ function gameOver() {
 
 function winGame() {
     game.state = 'won';
-    sounds.stop('backgroundMusic');
+    // Stop boss music when winning
+    if (window.bossMusic && window.bossMusicLoaded) {
+        window.bossMusic.stop();
+    }
     sounds.play('win');
     
     // Check if this is a new best time
@@ -528,10 +733,21 @@ function winGame() {
 
 function restartGame() {
     document.getElementById('gameover-menu').classList.add('hidden');
+    // Stop any music that might be playing
+    if (window.bossMusic && window.bossMusicLoaded) {
+        window.bossMusic.stop();
+    }
+    if (window.gameMusic && window.gameMusicLoaded) {
+        window.gameMusic.stop();
+    }
     initGame();
     game.state = 'playing';
     game.startTime = Date.now();
-    sounds.loop('backgroundMusic');
+    // Start regular music from the beginning
+    if (window.gameMusic && window.gameMusicLoaded) {
+        window.gameMusic.setVolume(0.5);
+        window.gameMusic.loop();
+    }
     loop();
 }
 
@@ -545,6 +761,9 @@ function returnToTitle() {
         if (window.gameMusic && window.gameMusicLoaded) {
             window.gameMusic.stop();
         }
+        if (window.bossMusic && window.bossMusicLoaded) {
+            window.bossMusic.stop();
+        }
         
         // Reset game state
         game.state = 'waiting';
@@ -556,7 +775,20 @@ function returnToTitle() {
 // ========== INPUT HANDLERS ==========
 function keyPressed() {
     keys[key] = true;
-    if (key === CONTROLS.PAUSE || key === 'p' || key === 'P') {
+    
+    // Boss skip cheat code - press 'y' to skip to boss fight
+    if ((key === 'y' || key === 'Y') && game.state === 'playing' && !game.bossMode) {
+        // Teleport Carl to just above the surface (remember: surfaceGoal is negative, lower Y = higher up)
+        carl.y = game.surfaceGoal - 100 * scaleY;
+        carl.vy = 0;
+        carl.vx = 0;
+        // Trigger boss mode immediately
+        game.bossMode = true;
+        console.log('Skipping to boss fight! Carl Y:', carl.y, 'Surface Y:', game.surfaceGoal);
+        return false;
+    }
+    
+    if (key === CONTROLS.PAUSE || key === 'Escape' || key === 'p' || key === 'P') {
         // Only allow pausing if actually playing (not waiting)
         if (game.state === 'playing') pauseGame();
         else if (game.state === 'paused') resumeGame();
@@ -586,6 +818,18 @@ function loadSounds() {
         (err) => { 
             console.log('Failed to load game music:', err);
             window.gameMusicLoaded = false;
+        }
+    );
+    
+    // Load boss battle music
+    window.bossMusic = loadSound('sounds/carlSunBattle.mp3',
+        () => {
+            console.log('Boss battle music loaded successfully');
+            window.bossMusicLoaded = true;
+        },
+        (err) => {
+            console.log('Failed to load boss music:', err);
+            window.bossMusicLoaded = false;
         }
     );
     

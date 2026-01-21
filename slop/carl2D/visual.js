@@ -69,6 +69,11 @@ class BackgroundLayer {
     draw() {
         push(); translate(0, -game.cameraY * this.scrollSpeed);
         for (let elem of this.elements) {
+            // Don't draw background elements above the water surface
+            if (elem.y < game.surfaceGoal) {
+                continue;
+            }
+            
             push(); translate(elem.x, elem.y);
             let alpha = map(this.depth, 0, 1, 80, 180);
             if (elem.type === 'coral') {
@@ -89,6 +94,51 @@ class BackgroundLayer {
             }
             pop();
         }
+        pop();
+    }
+}
+
+// ========== CLOUDS ==========
+class Cloud {
+    constructor(x, y) {
+        this.x = x !== undefined ? x : random(-width, width * 2);
+        this.y = y !== undefined ? y : random(game.surfaceGoal - height, game.surfaceGoal - 100 * scaleY);
+        this.size = random(60, 120) * SCALE;
+        this.speed = random(0.3, 0.8) * scaleX;
+        this.puffCount = floor(random(3, 6));
+        this.puffs = [];
+        for (let i = 0; i < this.puffCount; i++) {
+            this.puffs.push({
+                offsetX: random(-this.size * 0.5, this.size * 0.5),
+                offsetY: random(-this.size * 0.2, this.size * 0.2),
+                size: random(this.size * 0.6, this.size)
+            });
+        }
+    }
+    
+    update() {
+        this.x += this.speed;
+        // Wrap around when off screen
+        if (this.x > width + this.size * 2) {
+            this.x = -this.size * 2;
+            this.y = random(game.surfaceGoal - height, game.surfaceGoal - 100 * scaleY);
+        }
+    }
+    
+    draw() {
+        // Only draw if above water surface and on screen
+        if (this.y > game.surfaceGoal) return;
+        
+        push();
+        translate(0, -game.cameraY);
+        noStroke();
+        
+        // Draw cloud puffs
+        for (let puff of this.puffs) {
+            fill(255, 255, 255, 200);
+            ellipse(this.x + puff.offsetX, this.y + puff.offsetY, puff.size, puff.size * 0.8);
+        }
+        
         pop();
     }
 }
@@ -261,9 +311,9 @@ function drawSeabed() {
 
 function drawSurfaceIndicator() {
     let distToSurface = carl.y - game.surfaceGoal;
-    if (distToSurface < 500 * scaleY && distToSurface > 0) {
-        push(); fill(255, 255, 0); textAlign(CENTER); textSize(24 * SCALE);
-        text('Surface Nearby! ☀️', width / 2, 50 * scaleY); pop();
+    if (distToSurface < 500 * scaleY && distToSurface > 0 && !game.bossMode) {
+        push(); fill(255, 50, 50); textAlign(CENTER); textSize(24 * SCALE);
+        text('Warning: Deathly Laser ☀️', width / 2, 50 * scaleY); pop();
     }
 }
 
@@ -285,9 +335,6 @@ function drawWaterSurface() {
             }
             endShape();
         }
-        fill(135, 206, 235, 100);
-        noStroke();
-        rect(0, 0, width, surfaceY);
         for (let i = 0; i < 20; i++) {
             let x = (frameCount * 2 + i * 50) % (width + 100) - 50;
             let size = random(3, 8);
