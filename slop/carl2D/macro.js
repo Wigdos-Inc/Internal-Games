@@ -97,9 +97,9 @@ const CARL_CONFIG = {
     FRICTION: 0.92,
     WATER_RESISTANCE: 0.97,
     get MAX_SPEED() { return 28 * scaleX; },
-    get JUMP_POWER() { return -18 * scaleY; },
+    get JUMP_POWER() { return -25 * scaleY; }, // Increased from -18 to -25 for higher jumps
     // Reduce gravity on smaller screens to make vertical movement easier
-    get GRAVITY() { return 0.3 * scaleY * Math.min(scaleY, 1.0); },
+    get GRAVITY() { return 0.25 * scaleY * Math.min(scaleY, 1.0); }, // Reduced from 0.3 to 0.25 for higher jumps
     
     // Powerups
     SPEED_BOOST_DURATION: 300,    // Frames

@@ -24,11 +24,12 @@ class SunBoss extends Enemy {
         this.bobAmount = 20 * scaleY;
         this.baseY = y;
         this.phase = 1; // Boss phases based on health
+        this.evasionDelay = 0; // Delay for evasion movement
+        this.targetBaseY = y; // Target Y position for evasion
     }
     
     update() {
         this.animFrame += 0.05;
-        this.y = this.baseY + sin(this.animFrame * 2) * this.bobAmount;
         
         // Don't update attack logic or move horizontally during intro
         if (this.introMode) {
@@ -39,6 +40,37 @@ class SunBoss extends Enemy {
             }
             return; // Skip the rest of the update during intro
         }
+        
+        // Evasion behavior - track Carl's upward movement with delay
+        if (typeof carl !== 'undefined' && carl) {
+            // Check if Carl is moving upward
+            if (carl.vy < -5) {
+                // Carl is moving up quickly - boss should evade upward after delay
+                this.evasionDelay++;
+                if (this.evasionDelay > 20) { // 20 frame delay (~0.33 seconds)
+                    // Move up but only 40% as much as Carl would move
+                    let evasionAmount = carl.vy * 0.4;
+                    this.targetBaseY += evasionAmount;
+                    // Limit how high the boss can go
+                    let maxHeight = game.surfaceGoal - 600 * scaleY;
+                    if (this.targetBaseY < maxHeight) {
+                        this.targetBaseY = maxHeight;
+                    }
+                }
+            } else {
+                // Carl not moving up quickly - reset delay and drift back to original position
+                this.evasionDelay = 0;
+                // Slowly return to original height
+                let originalY = game.surfaceGoal - 400 * scaleY;
+                this.targetBaseY = lerp(this.targetBaseY, originalY, 0.02);
+            }
+        }
+        
+        // Smoothly move baseY toward target
+        this.baseY = lerp(this.baseY, this.targetBaseY, 0.05);
+        
+        // Apply bobbing animation on top of base position
+        this.y = this.baseY + sin(this.animFrame * 2) * this.bobAmount;
         
         // Move toward center of screen horizontally
         let targetX = width / 2;
@@ -103,7 +135,13 @@ class SunBoss extends Enemy {
     }
     
     checkCollision(carl) {
-        // Boss body doesn't damage Carl directly
+        // Check if Carl collides with the sun boss
+        let d = dist(this.x, this.y, carl.x, carl.y);
+        if (d < (this.size * 0.6 + carl.size) * 0.7) {
+            // Carl hits the sun - damage the boss but also hurt Carl
+            this.takeDamage();
+            return true; // This will trigger Carl.hit()
+        }
         return false;
     }
     
@@ -273,30 +311,41 @@ function generateBossPlatforms() {
 
 function createBossPlatforms() {
     // Create manual static platforms above water that don't despawn
-    // These are thin platforms arranged for jumping gameplay
+    // Wider platforms (relative to screen width) with more erratic horizontal spacing
     
-    // Layer 1: Low platforms just above water (easy to reach)
-    platforms.push(new Platform(100 * scaleX, game.surfaceGoal - 100 * scaleY, 120 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width - 220 * scaleX, game.surfaceGoal - 100 * scaleY, 120 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width / 2 - 60 * scaleX, game.surfaceGoal - 80 * scaleY, 120 * scaleX, 20 * scaleY));
+    let platformWidth = width * 0.18; // 18% of screen width - much wider
     
-    // Layer 2: Mid-height platforms
-    platforms.push(new Platform(200 * scaleX, game.surfaceGoal - 250 * scaleY, 100 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width - 300 * scaleX, game.surfaceGoal - 280 * scaleY, 100 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width / 2 - 50 * scaleX, game.surfaceGoal - 220 * scaleY, 100 * scaleX, 20 * scaleY));
+    // Use scaleY for vertical spacing to ensure consistency across screen sizes
+    let verticalSpacing = 180 * scaleY; // Increased vertical spacing for more height variation
     
-    // Layer 3: Higher platforms
-    platforms.push(new Platform(150 * scaleX, game.surfaceGoal - 400 * scaleY, 100 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width - 250 * scaleX, game.surfaceGoal - 420 * scaleY, 100 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width / 2 - 50 * scaleX, game.surfaceGoal - 380 * scaleY, 100 * scaleX, 20 * scaleY));
+    // Layer 1: Low platforms just above water - far left and far right with erratic positions
+    platforms.push(new Platform(width * 0.05, game.surfaceGoal - verticalSpacing * 1, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.77, game.surfaceGoal - verticalSpacing * 1.1, platformWidth, 25 * scaleY));
     
-    // Layer 4: High platforms near boss level
-    platforms.push(new Platform(250 * scaleX, game.surfaceGoal - 550 * scaleY, 90 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width - 340 * scaleX, game.surfaceGoal - 530 * scaleY, 90 * scaleX, 20 * scaleY));
+    // Layer 2: Mid-low platforms - more erratic horizontal placement
+    platforms.push(new Platform(width * 0.12, game.surfaceGoal - verticalSpacing * 2.4, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.42, game.surfaceGoal - verticalSpacing * 2.0, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.73, game.surfaceGoal - verticalSpacing * 2.6, platformWidth, 25 * scaleY));
     
-    // Layer 5: Top platforms (at boss height)
-    platforms.push(new Platform(width / 4, game.surfaceGoal - 650 * scaleY, 100 * scaleX, 20 * scaleY));
-    platforms.push(new Platform(width * 3 / 4 - 100 * scaleX, game.surfaceGoal - 650 * scaleY, 100 * scaleX, 20 * scaleY));
+    // Layer 3: Mid platforms - widely spaced, erratic heights
+    platforms.push(new Platform(width * 0.08, game.surfaceGoal - verticalSpacing * 3.8, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.52, game.surfaceGoal - verticalSpacing * 3.3, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.78, game.surfaceGoal - verticalSpacing * 3.6, platformWidth, 25 * scaleY));
+    
+    // Layer 4: Mid-high platforms - very erratic placement
+    platforms.push(new Platform(width * 0.15, game.surfaceGoal - verticalSpacing * 5.0, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.38, game.surfaceGoal - verticalSpacing * 4.5, platformWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.68, game.surfaceGoal - verticalSpacing * 5.3, platformWidth, 25 * scaleY));
+    
+    // Layer 5: High platforms near boss - wider, more spaced out
+    let topWidth = platformWidth * 1.3; // Even wider at the top
+    platforms.push(new Platform(width * 0.1, game.surfaceGoal - verticalSpacing * 6.5, topWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.45, game.surfaceGoal - verticalSpacing * 6.0, topWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.72, game.surfaceGoal - verticalSpacing * 6.8, topWidth, 25 * scaleY));
+    
+    // Layer 6: Extra high platforms for variety - reaching even higher
+    platforms.push(new Platform(width * 0.25, game.surfaceGoal - verticalSpacing * 7.8, topWidth, 25 * scaleY));
+    platforms.push(new Platform(width * 0.58, game.surfaceGoal - verticalSpacing * 7.5, topWidth, 25 * scaleY));
     
     // Mark all boss platforms as permanent (don't despawn)
     for (let platform of platforms) {

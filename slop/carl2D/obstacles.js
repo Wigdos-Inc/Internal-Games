@@ -38,6 +38,9 @@ class Platform {
         
         // Spawn crabs if rolled
         if (crabCount > 0) {
+            // Only spawn 1 crab maximum per platform
+            crabCount = 1;
+            
             for (let i = 0; i < crabCount; i++) {
                 let crabX = this.x + random(50 * scaleX, this.width - 50 * scaleX);
                 // Position crab on top of platform - use crab size to place properly
@@ -272,7 +275,9 @@ class SideJellyfish extends Enemy {
         super('sidejellyfish', x, y);
         this.size = 45 * SCALE; 
         this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
-        this.speed = 4 * scaleX * this.speedMultiplier;
+        // Boss mode speed boost: 1.5x faster
+        let bossModeBoost = (typeof game !== 'undefined' && game.bossMode) ? 1.5 : 1.0;
+        this.speed = 4 * scaleX * this.speedMultiplier * bossModeBoost;
         this.direction = direction;
         this.bobAmount = 40 * scaleY; this.baseY = y;
     }
@@ -308,7 +313,9 @@ class Shark extends Enemy {
         super('shark', x, y);
         this.size = 60 * SCALE; 
         this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
-        this.speed = ENEMY_CONFIG.SHARK_SPEED * this.speedMultiplier;
+        // Boss mode speed boost: 1.5x faster
+        let bossModeBoost = (typeof game !== 'undefined' && game.bossMode) ? 1.5 : 1.0;
+        this.speed = ENEMY_CONFIG.SHARK_SPEED * this.speedMultiplier * bossModeBoost;
         this.direction = direction;
     }
     update() {
@@ -347,7 +354,9 @@ class Bomb extends Enemy {
         super('bomb', x, y);
         this.size = 70 * SCALE; 
         this.speedMultiplier = random(0.8, 1.2); // ±20% speed variation
-        this.speed = ENEMY_CONFIG.BOMB_SPEED * this.speedMultiplier;
+        // Boss mode speed boost: 1.5x faster
+        let bossModeBoost = (typeof game !== 'undefined' && game.bossMode) ? 1.5 : 1.0;
+        this.speed = ENEMY_CONFIG.BOMB_SPEED * this.speedMultiplier * bossModeBoost;
         this.direction = direction;
         this.exploding = false; this.explosionTimer = 0; this.maxExplosionTime = 30;
     }
@@ -540,18 +549,72 @@ function spawnSideEnemies() {
     // Cooldown check to prevent bunching
     let now = Date.now();
     let carlSpeed = Math.abs(carl.vy);
-    let cooldown = carlSpeed > 10 ? 50 : 150; // Much shorter cooldown for more spawns
+    
+    // In boss mode, much more aggressive spawning when underwater
+    let cooldown = game.bossMode ? 800 : (carlSpeed > 10 ? 50 : 150);
     if (now - game.lastSideEnemySpawnTime < cooldown) {
         return;
     }
     
+    // In boss mode, only spawn if Carl is underwater (to prevent camping)
+    if (game.bossMode) {
+        // Only spawn when Carl is underwater
+        if (carl.y <= game.surfaceGoal) {
+            return; // Carl is above water, don't spawn
+        }
+        
+        // Increased limits in boss mode: max 4 sharks, 2 bombs, and 3 jellyfish at a time
+        let sharkCount = enemies.filter(e => e.type === 'shark').length;
+        let bombCount = enemies.filter(e => e.type === 'bomb').length;
+        let jellyfishCount = enemies.filter(e => e.type === 'sidejellyfish').length;
+        
+        // Allow spawning if we're under the limits
+        if (sharkCount >= 4 && bombCount >= 2 && jellyfishCount >= 3) {
+            return; // Already at limit
+        }
+        
+        // Increased spawn chance in boss mode - from 70% to 85%
+        if (random() > 0.15) { // Changed from 0.3 to 0.15
+            return;
+        }
+        
+        // Update spawn time
+        game.lastSideEnemySpawnTime = Date.now();
+        
+        let direction = random() > 0.5 ? 1 : -1;
+        let spawnX = direction > 0 ? -100 * scaleX : width + 100 * scaleX;
+        let spawnY = game.surfaceGoal + random(100 * scaleY, 400 * scaleY); // Spawn in water zone
+        
+        // Decide what to spawn based on what we need
+        let availableTypes = [];
+        if (sharkCount < 4) availableTypes.push('shark');
+        if (bombCount < 2) availableTypes.push('bomb');
+        if (jellyfishCount < 3) availableTypes.push('jellyfish');
+        
+        if (availableTypes.length === 0) return;
+        
+        // Choose randomly from available types
+        let spawnType = availableTypes[floor(random(availableTypes.length))];
+        
+        if (spawnType === 'shark') {
+            enemies.push(new Shark(spawnX, spawnY, direction));
+        } else if (spawnType === 'bomb') {
+            enemies.push(new Bomb(spawnX, spawnY, direction));
+        } else if (spawnType === 'jellyfish') {
+            enemies.push(new SideJellyfish(spawnX, spawnY, direction));
+        }
+        
+        return; // Exit early for boss mode
+    }
+    
+    // Regular game mode logic below
     // Grace period: reduced spawn rate in first N seconds
     if (game.currentTime < GAME_CONFIG.GRACE_PERIOD_SECONDS && random() > GAME_CONFIG.GRACE_PERIOD_SPAWN_CHANCE) {
         return;
     }
     
-    // Don't spawn enemies near/above water surface
-    if (game.cameraY < game.surfaceGoal + 1000) {
+    // Don't spawn enemies near/above water surface (unless in boss mode with Carl underwater)
+    if (!game.bossMode && game.cameraY < game.surfaceGoal + 1000) {
         return;
     }
     
@@ -610,8 +673,13 @@ function spawnSideEnemies() {
         // When fast: spawn ahead with offset
         let spawnY = screenCenterY + random(-height * 0.5, height * 0.5) + verticalOffset;
         
-        // Don't spawn if final position is in surface safe zone
-        if (spawnY < game.surfaceGoal + 1000) {
+        // In boss mode, spawn near water level
+        if (game.bossMode) {
+            spawnY = game.surfaceGoal + random(50 * scaleY, 300 * scaleY);
+        }
+        
+        // Don't spawn if final position is in surface safe zone (unless boss mode)
+        if (!game.bossMode && spawnY < game.surfaceGoal + 1000) {
             return;
         }
         
@@ -628,9 +696,29 @@ function spawnSideEnemies() {
         let direction = random() > 0.5 ? 1 : -1;
         // Use screen-width relative spawn positions
         let spawnX = direction > 0 ? -100 * scaleX : width + 100 * scaleX;
-        let enemyType = floor(random(4));
         
-        if (enemyType === 3) {
+        // In boss mode, only spawn sharks and bombs
+        let enemyType;
+        if (game.bossMode) {
+            // Count current sharks and bombs
+            let sharkCount = enemies.filter(e => e.type === 'shark').length;
+            let bombCount = enemies.filter(e => e.type === 'bomb').length;
+            
+            // Prefer spawning what we're missing
+            if (sharkCount < 2 && bombCount < 1) {
+                enemyType = random() > 0.33 ? 1 : 2; // 67% shark, 33% bomb
+            } else if (sharkCount < 2) {
+                enemyType = 1; // Spawn shark
+            } else if (bombCount < 1) {
+                enemyType = 2; // Spawn bomb
+            } else {
+                return; // At limit
+            }
+        } else {
+            enemyType = floor(random(4));
+        }
+        
+        if (enemyType === 3 && !game.bossMode) {
             let hookX = random(width * 0.2, width * 0.8);
             if (dist(hookX, spawnY, carl.x, carl.y) < safeRadius) {
                 return;
@@ -644,19 +732,20 @@ function spawnSideEnemies() {
             if (dist(spawnX, spawnY, carl.x, carl.y) < safeRadius) {
                 return;
             }
-            if (enemyType === 0) {
-                // Side jellyfish has its own separate limit
+            if (enemyType === 0 && !game.bossMode) {
                 if (countEnemyType('sidejellyfish') < ENEMY_LIMITS['sidejellyfish']) {
                     enemies.push(new SideJellyfish(spawnX, spawnY, direction));
                 }
             } else if (enemyType === 1) {
-                // Check shark limit (max 3)
-                if (countEnemyType('shark') < ENEMY_LIMITS['shark']) {
+                // Check shark limit
+                let maxSharks = game.bossMode ? 2 : ENEMY_LIMITS['shark'];
+                if (countEnemyType('shark') < maxSharks) {
                     enemies.push(new Shark(spawnX, spawnY, direction));
                 }
             } else if (enemyType === 2) {
-                // Check bomb/big mine limit (max 3)
-                if (countEnemyType('bomb') < ENEMY_LIMITS['bomb']) {
+                // Check bomb limit
+                let maxBombs = game.bossMode ? 1 : ENEMY_LIMITS['bomb'];
+                if (countEnemyType('bomb') < maxBombs) {
                     enemies.push(new Bomb(spawnX, spawnY, direction));
                 }
             }
