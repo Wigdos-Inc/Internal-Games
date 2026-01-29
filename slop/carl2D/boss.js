@@ -106,7 +106,13 @@ class SunBoss extends Enemy {
         // Check if boss is defeated
         if (this.health <= 0) {
             this.toRemove = true;
-            winGame();
+            // Trigger the cinematic end sequence (handled in game.js)
+            if (typeof startWinSequence === 'function') {
+                startWinSequence(this);
+            } else {
+                // Fallback
+                winGame();
+            }
         }
     }
     

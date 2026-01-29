@@ -18,6 +18,11 @@ function draw() {
     if (game.state === 'playing') {
         game.currentTime = (Date.now() - game.startTime) / 1000;
     }
+
+    // Run/advance win cutscene timer even after state changes
+    if (game.winSequenceActive) {
+        game.winSequenceTimer++;
+    }
     
     drawBackground();
     for (let layer of background.layers) { layer.update(); layer.draw(); }
@@ -27,6 +32,24 @@ function draw() {
     for (let bubble of background.bubbles) { bubble.update(); bubble.draw(); }
     // Update and draw clouds above water
     for (let cloud of background.clouds) { cloud.update(); cloud.draw(); }
+
+    // If we are in the end cutscene, drive camera/visuals and skip normal simulation.
+    if (game.winSequenceActive) {
+        updateWinSequence();
+
+        // Draw world objects (platforms can be hidden via fade overlay)
+        for (let platform of platforms) platform.draw();
+        for (let powerup of powerups) powerup.draw();
+        for (let enemy of enemies) enemy.draw();
+        for (let particle of particles) particle.draw();
+        carl.draw();
+        drawWaterSurface();
+        drawSurfaceIndicator();
+        updateHUD();
+
+        drawWinSequenceOverlay();
+        return;
+    }
     
     if (game.state === 'playing') {
         // Handle music fading when approaching surface
@@ -246,6 +269,171 @@ function draw() {
     drawWaterSurface();
     drawSurfaceIndicator();
     updateHUD();
+}
+
+// ========== BOSS WIN CUTSCENE ==========
+function startWinSequence(boss) {
+    if (game.winSequenceActive) return;
+
+    game.winSequenceActive = true;
+    game.winSequenceTimer = 0;
+    game.winSequencePhase = 0;
+
+    // Stop boss music immediately, but don't show popup yet
+    if (window.bossMusic && window.bossMusicLoaded) {
+        try { window.bossMusic.stop(); } catch (e) {}
+    }
+
+    // Freeze gameplay time
+    game.state = 'cutscene';
+
+    // Clear hostile projectiles quickly so visuals don't clutter
+    enemies = enemies.filter(e => e && (e.type === 'sunboss'));
+
+    // Snapshot boss visuals for the cutscene
+    const sun = boss || game.boss;
+    game.winSequenceData.startCameraY = game.cameraY;
+    game.winSequenceData.sunX = sun ? sun.x : width / 2;
+    game.winSequenceData.sunY = sun ? sun.y : (game.surfaceGoal - 400 * scaleY);
+    game.winSequenceData.sunSize = sun ? sun.size : (150 * SCALE);
+    game.winSequenceData.supernovaProgress = 0;
+    game.winSequenceData.fadeAlpha = 0;
+
+    // Start Carl falling back into the water
+    carl.vx = 0;
+    carl.vy = 0;
+}
+
+function updateWinSequence() {
+    // Phases:
+    // 0) Carl falls back into water (short)
+    // 1) Camera focuses on sun
+    // 2) Supernova expands + everything fades
+    // 3) Finish: show win popup (calls existing winGame)
+
+    const data = game.winSequenceData;
+    const sunTargetY = data.sunY - height * 0.35; // place sun a bit above center
+
+    if (game.winSequencePhase === 0) {
+        // Make Carl drop into the water quickly
+        const waterY = game.surfaceGoal + 220 * scaleY;
+        const fallSpeed = 10 * scaleY;
+
+        // Keep Carl roughly centered while falling
+        carl.x = lerp(carl.x, width / 2, 0.08);
+        carl.y += fallSpeed;
+
+        // Clamp so he "splashes" just below the surface
+        if (carl.y >= waterY) {
+            carl.y = waterY;
+            // Some splash particles
+            for (let i = 0; i < 25; i++) {
+                particles.push(new Particle(carl.x + random(-30, 30) * SCALE, carl.y + random(-10, 10) * scaleY, 'boost'));
+            }
+            game.winSequencePhase = 1;
+            game.winSequenceTimer = 0;
+        }
+
+        // Camera still loosely follows Carl during the fall
+        game.cameraY = lerp(game.cameraY, carl.y - height / 2, 0.12);
+        return;
+    }
+
+    if (game.winSequencePhase === 1) {
+        // Smooth camera transition to focus on the sun
+        const targetCameraY = sunTargetY;
+        game.cameraY = lerp(game.cameraY, targetCameraY, 0.06);
+
+        // Keep Carl inert in the water
+        carl.vx = 0;
+        carl.vy = 0;
+
+        // After ~2 seconds, start supernova
+        if (game.winSequenceTimer > 120) {
+            game.winSequencePhase = 2;
+            game.winSequenceTimer = 0;
+        }
+        return;
+    }
+
+    if (game.winSequencePhase === 2) {
+        // Hold camera on sun
+        const targetCameraY = sunTargetY;
+        game.cameraY = lerp(game.cameraY, targetCameraY, 0.08);
+
+        // Expand supernova over ~3 seconds
+        const duration = 180;
+        const t = constrain(game.winSequenceTimer / duration, 0, 1);
+        data.supernovaProgress = t;
+
+        // Fade world out as supernova grows
+        data.fadeAlpha = constrain(map(t, 0.15, 0.9, 0, 255), 0, 255);
+
+        // Update particles gently for ambiance
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update();
+            if (particles[i].toRemove) particles.splice(i, 1);
+        }
+
+        if (t >= 1) {
+            game.winSequencePhase = 3;
+            game.winSequenceTimer = 0;
+        }
+        return;
+    }
+
+    if (game.winSequencePhase === 3) {
+        // End cutscene and show win popup
+        game.winSequenceActive = false;
+        // Restore state marker expected by winGame
+        game.state = 'playing';
+        winGame();
+    }
+}
+
+function drawWinSequenceOverlay() {
+    const data = game.winSequenceData;
+
+    // Draw supernova centered on the sun position in screen space
+    const sunScreenX = data.sunX;
+    const sunScreenY = data.sunY - game.cameraY;
+
+    // Supernova glow (only during phase >= 2)
+    if (game.winSequencePhase >= 2) {
+        push();
+        blendMode(ADD);
+
+        const t = data.supernovaProgress;
+        const base = data.sunSize;
+        const r1 = base * (1.2 + t * 10.0);
+        const r2 = base * (0.8 + t * 6.0);
+
+        noStroke();
+        fill(255, 240, 200, 80);
+        circle(sunScreenX, sunScreenY, r1);
+        fill(255, 180, 80, 90);
+        circle(sunScreenX, sunScreenY, r2);
+        fill(255, 255, 255, 120);
+        circle(sunScreenX, sunScreenY, base * (0.6 + t * 2.5));
+
+        // Shockwave ring
+        noFill();
+        stroke(255, 255, 255, 140);
+        strokeWeight(6 * SCALE);
+        circle(sunScreenX, sunScreenY, base * (1.0 + t * 12.0));
+
+        blendMode(BLEND);
+        pop();
+    }
+
+    // Fade-to-white overlay so "everything disappears"
+    if (data.fadeAlpha > 0) {
+        push();
+        noStroke();
+        fill(255, 255, 255, data.fadeAlpha);
+        rect(0, 0, width, height);
+        pop();
+    }
 }
 
 // ========== GAME STATE FUNCTIONS ==========

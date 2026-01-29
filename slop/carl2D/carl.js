@@ -29,7 +29,20 @@ let game = {
     bossIntroActive: false,  // Boss intro cutscene active
     bossIntroTimer: 0,  // Timer for boss intro
     musicFading: false,  // Is main music fading out
-    musicFadeAmount: 1.0  // Current volume for fade
+    musicFadeAmount: 1.0,  // Current volume for fade
+
+    // Endgame cutscene (boss defeat)
+    winSequenceActive: false,
+    winSequenceTimer: 0,
+    winSequencePhase: 0,
+    winSequenceData: {
+        startCameraY: 0,
+        sunX: 0,
+        sunY: 0,
+        sunSize: 0,
+        supernovaProgress: 0,
+        fadeAlpha: 0
+    }
 };
 
 let carl;
