@@ -4,6 +4,14 @@
 
 "use strict";
 
+// ========== DEBUG MODE ==========
+let DEBUG = false;
+window.debug = function() {
+    DEBUG = !DEBUG;
+    console.log(`DEBUG mode ${DEBUG ? 'ENABLED' : 'DISABLED'}`);
+    console.log('Features: Boss skip (Y key), console logs');
+};
+
 // ========== GAME LOOP ==========
 function setup() {
     let canvas = createCanvas(windowWidth, windowHeight);
@@ -24,6 +32,21 @@ function draw() {
         game.winSequenceTimer++;
     }
     
+    // Screen shake during boss defeat (first 3 seconds)
+    let shakeX = 0;
+    let shakeY = 0;
+    if (game.bossMode) {
+        let boss = enemies.find(e => e.type === 'sunboss');
+        if (boss && boss.defeated && boss.defeatTimer <= 180) {
+            let intensity = 5 * SCALE;
+            shakeX = random(-intensity, intensity);
+            shakeY = random(-intensity, intensity);
+        }
+    }
+    
+    push();
+    translate(shakeX, shakeY);
+    
     drawBackground();
     for (let layer of background.layers) { layer.update(); layer.draw(); }
     drawGreyRock();
@@ -36,6 +59,14 @@ function draw() {
     // If we are in the end cutscene, drive camera/visuals and skip normal simulation.
     if (game.winSequenceActive) {
         updateWinSequence();
+
+        // Update particles for supernova animation
+        for (let i = particles.length - 1; i >= 0; i--) {
+            if (!particles[i]) continue;
+            particles[i].update();
+            if (!particles[i]) continue;
+            if (particles[i].toRemove) particles.splice(i, 1);
+        }
 
         // Draw world objects (platforms can be hidden via fade overlay)
         for (let platform of platforms) platform.draw();
@@ -133,6 +164,7 @@ function draw() {
                     if (game.boss.y >= game.boss.targetY) {
                         game.boss.y = game.boss.targetY;
                         game.boss.baseY = game.boss.targetY;
+                        game.boss.targetBaseY = game.boss.targetY; // Set target to prevent shooting back up
                         game.boss.introMode = false;
                         game.bossSpawned = true;
                         game.bossIntroActive = false;
@@ -156,7 +188,21 @@ function draw() {
         }
         
         // Update camera to follow Carl smoothly, even during boss intro
-        game.cameraY = lerp(game.cameraY, carl.y - height / 2, 0.1);
+        if (game.bossMode) {
+            // Check if boss is defeated - focus camera on sun instead of Carl
+            let boss = enemies.find(e => e.type === 'sunboss');
+            if (boss && boss.defeated) {
+                // Camera locks on sun during defeat sequence - no lerp to prevent following Carl
+                let targetY = boss.y - height / 2;
+                game.cameraY = targetY;
+            } else {
+                // During boss fight, offset camera to show both Carl and sun
+                let cameraOffset = 300 * scaleY; // Offset camera above Carl
+                game.cameraY = lerp(game.cameraY, carl.y - height / 2 - cameraOffset, 0.1);
+            }
+        } else {
+            game.cameraY = lerp(game.cameraY, carl.y - height / 2, 0.1);
+        }
         
         // Prevent Carl from going too far below the surface in boss mode
         if (game.bossMode) {
@@ -202,13 +248,14 @@ function draw() {
             
             // Apply proper gravity and physics above water
             if (carl.y < game.surfaceGoal) {
-                // Carl is above water - apply very weak gravity for higher jumps
-                let airGravity = 0.2 * scaleY; // Reduced from 0.4 to 0.2 for even higher jumps
+                // Carl is above water - apply weak gravity that doesn't over-scale
+                let airGravity = 0.25 * scaleY;
                 carl.vy += airGravity;
                 
-                // Higher velocity cap for bigger jumps
-                if (carl.vy < -20 * scaleY) {
-                    carl.vy = -20 * scaleY; // Cap at -20
+                // Velocity cap that scales with screen
+                let maxUpwardVelocity = -30 * scaleY;
+                if (carl.vy < maxUpwardVelocity) {
+                    carl.vy = maxUpwardVelocity;
                 }
             }
         }
@@ -223,9 +270,13 @@ function draw() {
         }
         
         // Spawn side enemies in boss mode when Carl is underwater
-        if (game.bossMode) {
+        // But stop spawning if boss is defeated
+        let boss = game.bossMode ? enemies.find(e => e.type === 'sunboss') : null;
+        let bossDefeated = boss && boss.defeated;
+        
+        if (game.bossMode && !bossDefeated) {
             spawnSideEnemies(); // Allow sharks and bombs when underwater
-        } else {
+        } else if (!game.bossMode) {
             // Regular mode - spawn all enemy types
             spawnFloatingEnemies();
             spawnSideEnemies();
@@ -238,13 +289,22 @@ function draw() {
         }
         
         for (let i = powerups.length - 1; i >= 0; i--) {
+            if (!powerups[i]) continue; // Safety check
             powerups[i].update();
-            if (powerups[i].toRemove) powerups.splice(i, 1);
+            if (powerups[i] && powerups[i].toRemove) powerups.splice(i, 1);
         }
         
         for (let i = enemies.length - 1; i >= 0; i--) {
+            if (!enemies[i]) continue; // Safety check before update
             enemies[i].update();
-            if (enemies[i].checkCollision(carl)) {
+            // Safety check - enemy might have been removed during update
+            if (!enemies[i]) continue;
+            
+            // Check if boss is defeated - if so, don't damage Carl
+            let boss = game.bossMode ? enemies.find(e => e.type === 'sunboss') : null;
+            let bossDefeated = boss && boss.defeated;
+            
+            if (!bossDefeated && enemies[i].checkCollision(carl)) {
                 carl.hit();
                 // Don't remove the boss when hit - it has its own health system
                 if (enemies[i].type !== 'sunboss') {
@@ -256,7 +316,10 @@ function draw() {
         }
         
         for (let i = particles.length - 1; i >= 0; i--) {
+            if (!particles[i]) continue; // Safety check before update
             particles[i].update();
+            // Safety check - particle might have been removed during update
+            if (!particles[i]) continue;
             if (particles[i].toRemove) particles.splice(i, 1);
         }
     }
@@ -268,6 +331,30 @@ function draw() {
     carl.draw();
     drawWaterSurface();
     drawSurfaceIndicator();
+    
+    pop(); // End screen shake transform
+    
+    // Screen glow/darken effect during boss defeat
+    if (game.bossMode) {
+        let boss = enemies.find(e => e.type === 'sunboss');
+        if (boss && boss.defeated) {
+            push();
+            noStroke();
+            if (boss.defeatTimer <= 180) {
+                // Growing phase - screen glows brighter
+                let glowAlpha = map(boss.defeatTimer, 0, 180, 0, 120);
+                fill(255, 255, 200, glowAlpha);
+                rect(0, 0, width, height);
+            } else if (boss.defeatTimer <= 190) {
+                // Shrinking phase - screen darkens
+                let darkenAlpha = map(boss.defeatTimer, 181, 190, 0, 80);
+                fill(0, 0, 0, darkenAlpha);
+                rect(0, 0, width, height);
+            }
+            pop();
+        }
+    }
+    
     updateHUD();
 }
 
@@ -277,7 +364,7 @@ function startWinSequence(boss) {
 
     game.winSequenceActive = true;
     game.winSequenceTimer = 0;
-    game.winSequencePhase = 0;
+    game.winSequencePhase = 2; // Start directly at supernova expansion phase
 
     // Stop boss music immediately, but don't show popup yet
     if (window.bossMusic && window.bossMusicLoaded) {
@@ -383,11 +470,29 @@ function updateWinSequence() {
     }
 
     if (game.winSequencePhase === 3) {
-        // End cutscene and show win popup
-        game.winSequenceActive = false;
-        // Restore state marker expected by winGame
-        game.state = 'playing';
-        winGame();
+        // Hold white screen for 2 seconds (120 frames)
+        if (game.winSequenceTimer >= 120) {
+            game.winSequencePhase = 4;
+            game.winSequenceTimer = 0;
+        }
+        return;
+    }
+    
+    if (game.winSequencePhase === 4) {
+        // Flash to black briefly (10 frames)
+        if (game.winSequenceTimer >= 10) {
+            game.winSequencePhase = 5;
+            game.winSequenceTimer = 0;
+            // Initialize new credits system
+            CreditsSystem.init();
+        }
+        return;
+    }
+    
+    if (game.winSequencePhase === 5) {
+        // Credits handled by CreditsSystem
+        CreditsSystem.update();
+        return;
     }
 }
 
@@ -398,8 +503,8 @@ function drawWinSequenceOverlay() {
     const sunScreenX = data.sunX;
     const sunScreenY = data.sunY - game.cameraY;
 
-    // Supernova glow (only during phase >= 2)
-    if (game.winSequencePhase >= 2) {
+    // Supernova glow (only during phase 2)
+    if (game.winSequencePhase === 2) {
         push();
         blendMode(ADD);
 
@@ -427,12 +532,35 @@ function drawWinSequenceOverlay() {
     }
 
     // Fade-to-white overlay so "everything disappears"
-    if (data.fadeAlpha > 0) {
+    if (data.fadeAlpha > 0 && game.winSequencePhase === 2) {
         push();
         noStroke();
         fill(255, 255, 255, data.fadeAlpha);
         rect(0, 0, width, height);
         pop();
+    }
+    
+    // Phase 3: White screen hold
+    if (game.winSequencePhase === 3) {
+        push();
+        noStroke();
+        fill(255);
+        rect(0, 0, width, height);
+        pop();
+    }
+    
+    // Phase 4 & 5: Black background with credits
+    if (game.winSequencePhase === 4 || game.winSequencePhase === 5) {
+        push();
+        noStroke();
+        fill(0);
+        rect(0, 0, width, height);
+        pop();
+    }
+    
+    // Phase 5: Credits content (handled by CreditsSystem)
+    if (game.winSequencePhase === 5) {
+        CreditsSystem.draw();
     }
 }
 
@@ -485,6 +613,32 @@ window.startGamePlay = function() {
 };
 
 function updateHUD() {
+    // Hide HUD during credits
+    const hudElement = document.getElementById('hud');
+    if (game.winSequenceActive && game.winSequencePhase >= 4) {
+        if (hudElement) hudElement.style.display = 'none';
+        return;
+    } else {
+        if (hudElement) hudElement.style.display = 'flex';
+    }
+    
+    // Hide pause button during cutscenes (boss intro and defeat)
+    const pauseButton = document.getElementById('pause-button');
+    if (pauseButton) {
+        let bossDefeated = false;
+        if (game.bossMode) {
+            let boss = enemies.find(e => e.type === 'sunboss');
+            if (boss && boss.defeated) {
+                bossDefeated = true;
+            }
+        }
+        if (game.bossIntroActive || game.winSequenceActive || bossDefeated) {
+            pauseButton.style.visibility = 'hidden';
+        } else {
+            pauseButton.style.visibility = 'visible';
+        }
+    }
+    
     // Format time as MM:SS.mmm
     let minutes = Math.floor(game.currentTime / 60);
     let seconds = Math.floor(game.currentTime % 60);
@@ -627,6 +781,12 @@ function returnToTitle() {
         if (window.bossMusic && window.bossMusicLoaded) {
             window.bossMusic.stop();
         }
+        if (window.credits1Music && window.credits1Loaded) {
+            window.credits1Music.stop();
+        }
+        if (window.credits2Music && window.credits2Loaded) {
+            window.credits2Music.stop();
+        }
         
         // Reset game state
         game.state = 'waiting';
@@ -639,8 +799,15 @@ function returnToTitle() {
 function keyPressed() {
     keys[key] = true;
     
-    // Boss skip cheat code - press 'y' to skip to boss fight
-    if ((key === 'y' || key === 'Y') && game.state === 'playing' && !game.bossMode) {
+    // Credits controls - delegate to CreditsSystem
+    if (game.winSequenceActive && game.winSequencePhase === 5) {
+        if (CreditsSystem.handleKeyPress(key)) {
+            return false;
+        }
+    }
+    
+    // Boss skip cheat code - press 'y' to skip to boss fight (DEBUG only)
+    if (DEBUG && (key === 'y' || key === 'Y') && game.state === 'playing' && !game.bossMode) {
         // Teleport Carl to just above the surface (remember: surfaceGoal is negative, lower Y = higher up)
         carl.y = game.surfaceGoal - 100 * scaleY;
         carl.vy = 0;
@@ -649,11 +816,22 @@ function keyPressed() {
         game.cameraY = carl.y - height / 2;
         // Trigger boss mode immediately
         game.bossMode = true;
-        console.log('Skipping to boss fight! Carl Y:', carl.y, 'Surface Y:', game.surfaceGoal, 'Camera Y:', game.cameraY);
+        if (DEBUG) console.log('Skipping to boss fight! Carl Y:', carl.y, 'Surface Y:', game.surfaceGoal, 'Camera Y:', game.cameraY);
         return false;
     }
     
     if (key === CONTROLS.PAUSE || key === 'Escape' || key === 'p' || key === 'P') {
+        // Prevent pausing during any cutscene (boss intro, boss defeat, or win sequence)
+        if (game.bossIntroActive || game.winSequenceActive) {
+            return false;
+        }
+        // Also prevent pausing if boss is defeated (flashing/growing phase)
+        if (game.bossMode) {
+            let boss = enemies.find(e => e.type === 'sunboss');
+            if (boss && boss.defeated) {
+                return false;
+            }
+        }
         // Only allow pausing if actually playing (not waiting)
         if (game.state === 'playing') pauseGame();
         else if (game.state === 'paused') resumeGame();
@@ -677,22 +855,22 @@ function loadSounds() {
     // Load intro sounds
     window.introSplatSound = loadSound('../splat.mp3',
         () => {
-            console.log('Intro splat sound loaded successfully');
+            if (DEBUG) console.log('Intro splat sound loaded successfully');
             window.introSplatLoaded = true;
         },
         (err) => {
-            console.log('Failed to load intro splat sound:', err);
+            if (DEBUG) console.log('Failed to load intro splat sound:', err);
             window.introSplatLoaded = false;
         }
     );
     
     window.introSloppySound = loadSound('../sloppyCarl.mp3',
         () => {
-            console.log('Intro sloppy Carl sound loaded successfully');
+            if (DEBUG) console.log('Intro sloppy Carl sound loaded successfully');
             window.introSloppyLoaded = true;
         },
         (err) => {
-            console.log('Failed to load intro sloppy Carl sound:', err);
+            if (DEBUG) console.log('Failed to load intro sloppy Carl sound:', err);
             window.introSloppyLoaded = false;
         }
     );
@@ -700,11 +878,11 @@ function loadSounds() {
     // Load game music (carlMainTheme.mp3) - don't auto-play
     window.gameMusic = loadSound('sounds/carlMainTheme.mp3', 
         () => { 
-            console.log('Game music (carlMainTheme) loaded successfully');
+            if (DEBUG) console.log('Game music (carlMainTheme) loaded successfully');
             window.gameMusicLoaded = true;
         },
         (err) => { 
-            console.log('Failed to load game music:', err);
+            if (DEBUG) console.log('Failed to load game music:', err);
             window.gameMusicLoaded = false;
         }
     );
@@ -712,16 +890,62 @@ function loadSounds() {
     // Load boss battle music
     window.bossMusic = loadSound('sounds/carlSunBattle.mp3',
         () => {
-            console.log('Boss battle music loaded successfully');
+            if (DEBUG) console.log('Boss battle music loaded successfully');
             window.bossMusicLoaded = true;
         },
         (err) => {
-            console.log('Failed to load boss music:', err);
+            if (DEBUG) console.log('Failed to load boss music:', err);
             window.bossMusicLoaded = false;
+        }
+    );
+    
+    // Load boss defeat sounds
+    window.rumbleSound = loadSound('sounds/rumble.mp3',
+        () => {
+            if (DEBUG) console.log('Rumble sound loaded successfully');
+            window.rumbleSoundLoaded = true;
+        },
+        (err) => {
+            if (DEBUG) console.log('Failed to load rumble sound:', err);
+            window.rumbleSoundLoaded = false;
+        }
+    );
+    
+    window.explodeSound = loadSound('sounds/explode.mp3',
+        () => {
+            if (DEBUG) console.log('Explode sound loaded successfully');
+            window.explodeSoundLoaded = true;
+        },
+        (err) => {
+            if (DEBUG) console.log('Failed to load explode sound:', err);
+            window.explodeSoundLoaded = false;
+        }
+    );
+    
+    // Load credits music
+    window.credits1Music = loadSound('sounds/credits1.mp3',
+        () => {
+            if (DEBUG) console.log('Credits music 1 loaded successfully');
+            window.credits1Loaded = true;
+        },
+        (err) => {
+            if (DEBUG) console.log('Failed to load credits1 music:', err);
+            window.credits1Loaded = false;
+        }
+    );
+    
+    window.credits2Music = loadSound('sounds/credits2.mp3',
+        () => {
+            if (DEBUG) console.log('Credits music 2 loaded successfully');
+            window.credits2Loaded = true;
+        },
+        (err) => {
+            if (DEBUG) console.log('Failed to load credits2 music:', err);
+            window.credits2Loaded = false;
         }
     );
     
     sounds.backgroundMusic = window.gameMusic;
     sounds.loaded = true;
-    console.log('Sound system initialized. Music files ready.');
+    if (DEBUG) console.log('Sound system initialized. Music files ready.');
 }

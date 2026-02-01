@@ -63,13 +63,15 @@ class Carl {
     constructor(x, y) {
         this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.size = CARL_CONFIG.SIZE;
         this.rotation = 0; this.animFrame = 0; this.animSpeed = CARL_CONFIG.ANIM_SPEED;
-        this.acceleration = CARL_CONFIG.ACCELERATION; this.friction = CARL_CONFIG.FRICTION; this.waterResistance = CARL_CONFIG.WATER_RESISTANCE;
+        this.accelerationX = CARL_CONFIG.ACCELERATION_X; this.accelerationY = CARL_CONFIG.ACCELERATION_Y;
+        this.friction = CARL_CONFIG.FRICTION; this.waterResistance = CARL_CONFIG.WATER_RESISTANCE;
         this.maxSpeed = CARL_CONFIG.MAX_SPEED; this.jumpPower = CARL_CONFIG.JUMP_POWER; this.gravity = CARL_CONFIG.GRAVITY;
         this.speedBoost = 1.0; this.boostTimer = 0;
         this.hasShield = false;
         this.isGrounded = false; this.onPlatform = null;
         this.isInvincible = false; this.invincibleTimer = 0;
         this.jumping = false; // Track if Carl is in a jump
+        this.wasAboveWater = false; // Track water surface crossing for logging
         this.tentacles = [];
         for (let i = 0; i < CARL_CONFIG.TENTACLE_COUNT; i++) {
             this.tentacles.push({ angle: (TWO_PI / CARL_CONFIG.TENTACLE_COUNT) * i, length: CARL_CONFIG.TENTACLE_LENGTH, wave: random(TWO_PI) });
@@ -84,8 +86,20 @@ class Carl {
             return; // Exit early, don't process any movement
         }
         
-        if (game.state === 'playing') {
-            let accel = this.acceleration * this.speedBoost;
+        // Block input during boss defeat sequence, but allow falling
+        let bossDefeated = false;
+        if (game.bossMode) {
+            let boss = enemies.find(e => e.type === 'sunboss');
+            if (boss && boss.defeated) {
+                bossDefeated = true;
+                this.vx *= 0.95; // Slow horizontal movement
+                // Skip input processing but continue with physics below
+            }
+        }
+        
+        if (game.state === 'playing' && !bossDefeated) {
+            let accelX = this.accelerationX * this.speedBoost;
+            let accelY = this.accelerationY * this.speedBoost;
             
             // Check if Carl is above water in boss mode
             let isAboveWater = game.bossMode && this.y < game.surfaceGoal;
@@ -95,6 +109,7 @@ class Carl {
                 // Check for jump input (spacebar or up arrow)
                 if (keys[' '] || keys['ArrowUp'] || keys['w'] || keys['W']) {
                     this.vy = CARL_CONFIG.JUMP_POWER;
+                    if (DEBUG) console.log('[PLATFORM JUMP] Jump velocity:', this.vy, '| scaleY:', scaleY, '| Expected height:', Math.abs(this.vy) * 20);
                     this.jumping = true;
                     this.onPlatform = null;
                 }
@@ -127,8 +142,8 @@ class Carl {
                     // Apply acceleration towards target
                     // Horizontal movement
                     if (Math.abs(dx) > 10 * SCALE) { // Dead zone
-                        if (dx < 0) this.vx -= accel;
-                        else this.vx += accel;
+                        if (dx < 0) this.vx -= accelX;
+                        else this.vx += accelX;
                     }
                     
                     // Vertical movement - disable upward acceleration if above water (unless on platform for jumping)
@@ -139,18 +154,18 @@ class Carl {
                             this.jumping = true;
                             this.onPlatform = null;
                         } else if (dy < 0 && !isAboveWater) {
-                            this.vy -= accel; // Only allow upward acceleration underwater
+                            this.vy -= accelY; // Only allow upward acceleration underwater
                         } else if (dy > 0) {
-                            this.vy += accel; // Always allow downward acceleration
+                            this.vy += accelY; // Always allow downward acceleration
                         }
                     }
                 }
             } else {
                 // Keyboard controls
-                if (CONTROLS.LEFT.some(k => keys[k])) this.vx -= accel;
-                if (CONTROLS.RIGHT.some(k => keys[k])) this.vx += accel;
-                if (CONTROLS.UP.some(k => keys[k]) && !isAboveWater) this.vy -= accel; // Disable upward acceleration above water (jumping is handled separately)
-                if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accel;
+                if (CONTROLS.LEFT.some(k => keys[k])) this.vx -= accelX;
+                if (CONTROLS.RIGHT.some(k => keys[k])) this.vx += accelX;
+                if (CONTROLS.UP.some(k => keys[k]) && !isAboveWater) this.vy -= accelY; // Disable upward acceleration above water (jumping is handled separately)
+                if (CONTROLS.DOWN.some(k => keys[k])) this.vy += accelY;
             }
         }
         
@@ -171,15 +186,16 @@ class Carl {
                 // In air - lighter friction for momentum preservation
                 this.vx *= 0.96;
             }
-            // Almost no vertical air resistance
-            this.vy *= 0.995;
+            // Minimal vertical air resistance to preserve jump height
+            this.vy *= 0.998;
         }
         
         this.vy += this.gravity;
         
         let maxSpd = this.maxSpeed * this.speedBoost;
+        let maxSpdY = 28 * scaleY * this.speedBoost; // Vertical max speed should scale with scaleY
         this.vx = constrain(this.vx, -maxSpd, maxSpd);
-        this.vy = constrain(this.vy, -maxSpd * 1.5, maxSpd * 1.5);
+        this.vy = constrain(this.vy, -maxSpdY * 1.5, maxSpdY * 1.5);
         
         this.x += this.vx;
         this.y += this.vy;
@@ -203,6 +219,15 @@ class Carl {
         
         game.altitude = Math.abs(this.y - game.seaLevel);
         if (game.altitude > game.highestAltitude) game.highestAltitude = game.altitude;
+        
+        // Track when Carl crosses water surface in boss mode
+        if (game.bossMode) {
+            // Check if Carl just breached the surface (was below, now above)
+            if (!this.wasAboveWater && this.y < game.surfaceGoal) {
+                if (DEBUG) console.log('[WATER BREACH] Velocity at breach:', this.vy, '| scaleY:', scaleY, '| Distance to first platform:', 180 * scaleY * Math.min(1.0, scaleY * 1.2));
+            }
+            this.wasAboveWater = this.y < game.surfaceGoal;
+        }
         
         if (this.y <= game.surfaceGoal && !game.bossMode) {
             game.bossMode = true;

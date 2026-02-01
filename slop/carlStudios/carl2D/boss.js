@@ -9,11 +9,14 @@ class SunBoss extends Enemy {
     constructor(x, y) {
         super('sunboss', x, y);
         this.size = 150 * SCALE;
-        this.health = 20;
-        this.maxHealth = 20;
+        this.health = DEBUG ? 1 : 20;
+        this.maxHealth = DEBUG ? 1 : 20;
         this.invincible = false;
         this.invincibleTimer = 0;
         this.attackCooldown = 0;
+        this.defeated = false;
+        this.defeatTimer = 0;
+        this.defeatGrowth = 1.0;
         this.rays = [];
         for (let i = 0; i < 16; i++) {
             this.rays.push({
@@ -87,6 +90,73 @@ class SunBoss extends Enemy {
             if (this.invincibleTimer <= 0) this.invincible = false;
         }
         
+        // Check if boss is defeated - stop all attack logic
+        if (this.health <= 0 && !this.defeated) {
+            this.defeated = true;
+            this.defeatTimer = 0;
+            // Disable Carl's movement and damage
+            if (typeof carl !== 'undefined' && carl) {
+                carl.defeatedBoss = true;
+            }
+            // Fade out boss music and start rumble
+            if (window.bossMusic && window.bossMusicLoaded) {
+                window.bossMusic.setVolume(0.5);
+                let fadeInterval = setInterval(() => {
+                    let vol = window.bossMusic.getVolume();
+                    if (vol > 0.05) {
+                        window.bossMusic.setVolume(vol - 0.05);
+                    } else {
+                        window.bossMusic.stop();
+                        clearInterval(fadeInterval);
+                    }
+                }, 50);
+            }
+            if (window.rumbleSound && window.rumbleSoundLoaded) {
+                window.rumbleSound.setVolume(0.7);
+                window.rumbleSound.loop();
+            }
+        }
+        
+        // Handle defeat sequence
+        if (this.defeated) {
+            this.defeatTimer++;
+            
+            // Phase 1: Flash and grow for 3 seconds (180 frames)
+            if (this.defeatTimer <= 180) {
+                // Flashing handled in draw method
+                // Screen shake handled in game.js
+                // Sun grows bigger and bigger
+                this.defeatGrowth = map(this.defeatTimer, 0, 180, 1.0, 2.5);
+            }
+            // Phase 2: Rapid shrink (10 frames)
+            else if (this.defeatTimer <= 190) {
+                this.defeatGrowth = map(this.defeatTimer, 181, 190, 2.5, 0.1);
+            }
+            // Phase 3: Explode
+            else if (this.defeatTimer === 191) {
+                // Stop rumble and play explode sound
+                if (window.rumbleSound && window.rumbleSoundLoaded) {
+                    window.rumbleSound.stop();
+                }
+                if (window.explodeSound && window.explodeSoundLoaded) {
+                    window.explodeSound.setVolume(0.8);
+                    window.explodeSound.play(0, 1, 1, 0.8); // Start at 0.8 seconds
+                }
+                // Create supernova explosion
+                for (let i = 0; i < 100; i++) {
+                    particles.push(new BossExplosionParticle(this.x, this.y));
+                }
+                this.toRemove = true;
+                // Trigger win sequence
+                if (typeof startWinSequence === 'function') {
+                    startWinSequence(this);
+                } else {
+                    winGame();
+                }
+            }
+            return; // Skip normal update logic
+        }
+        
         // Attack patterns
         this.attackCooldown--;
         if (this.attackCooldown <= 0) {
@@ -102,45 +172,53 @@ class SunBoss extends Enemy {
             ray.length += random(-0.02, 0.02);
             ray.length = constrain(ray.length, 0.7, 1.3);
         }
-        
-        // Check if boss is defeated
-        if (this.health <= 0) {
-            this.toRemove = true;
-            // Trigger the cinematic end sequence (handled in game.js)
-            if (typeof startWinSequence === 'function') {
-                startWinSequence(this);
-            } else {
-                // Fallback
-                winGame();
-            }
-        }
     }
     
     attack() {
-        // Phase 1: Shoot fireballs toward Carl
+        // Calculate fireball count based on phase and scaleX
+        let baseCount;
+        let minCount;
         if (this.phase === 1) {
-            let angle = atan2(carl.y - this.y, carl.x - this.x);
-            enemies.push(new Fireball(this.x, this.y, angle));
+            baseCount = 2;
+            minCount = 1;
+        } else if (this.phase === 2) {
+            baseCount = 3;
+            minCount = 2;
+        } else {
+            baseCount = 5;
+            minCount = 3;
         }
-        // Phase 2: Shoot 3 fireballs in a spread
-        else if (this.phase === 2) {
-            let baseAngle = atan2(carl.y - this.y, carl.x - this.x);
-            for (let i = -1; i <= 1; i++) {
-                let angle = baseAngle + i * 0.3;
-                enemies.push(new Fireball(this.x, this.y, angle));
-            }
+        
+        // Scale fireball count with scaleX (reduce on narrow screens)
+        let fireballCount = Math.max(minCount, Math.round(baseCount * scaleX));
+        
+        // Reduce by 1 if Carl is underwater (minimum still applies)
+        if (typeof carl !== 'undefined' && carl.y > game.surfaceGoal) {
+            fireballCount = Math.max(minCount, fireballCount - 1);
         }
-        // Phase 3: Shoot 5 fireballs in a wide spread
-        else {
-            let baseAngle = atan2(carl.y - this.y, carl.x - this.x);
-            for (let i = -2; i <= 2; i++) {
-                let angle = baseAngle + i * 0.25;
+        
+        // Shoot fireballs
+        let baseAngle = atan2(carl.y - this.y, carl.x - this.x);
+        
+        if (fireballCount === 1) {
+            // Single fireball aimed at Carl
+            enemies.push(new Fireball(this.x, this.y, baseAngle));
+        } else {
+            // Multiple fireballs in a spread
+            let spreadAngle = 0.25; // Angle between fireballs
+            let halfCount = (fireballCount - 1) / 2;
+            for (let i = 0; i < fireballCount; i++) {
+                let offset = (i - halfCount) * spreadAngle;
+                let angle = baseAngle + offset;
                 enemies.push(new Fireball(this.x, this.y, angle));
             }
         }
     }
     
     checkCollision(carl) {
+        // Don't damage Carl when defeated
+        if (this.defeated) return false;
+        
         // Check if Carl collides with the sun boss
         let d = dist(this.x, this.y, carl.x, carl.y);
         if (d < (this.size * 0.6 + carl.size) * 0.7) {
@@ -166,18 +244,27 @@ class SunBoss extends Enemy {
     draw() {
         push(); translate(this.x, this.y - game.cameraY);
         
-        // Flashing when invincible
-        if (this.invincible && frameCount % 6 < 3) {
+        // Apply defeat growth scaling
+        if (this.defeated && this.defeatGrowth !== 1.0) {
+            scale(this.defeatGrowth);
+        }
+        
+        // Flashing effect during defeat sequence (first 3 seconds)
+        let useFlashing = this.defeated && this.defeatTimer <= 180;
+        
+        // Flashing when invincible OR during defeat
+        if ((this.invincible && frameCount % 6 < 3) || (useFlashing && frameCount % 4 < 2)) {
             pop();
             return;
         }
         
-        // Glow effect
-        let glowSize = this.size * 1.8 + sin(this.animFrame * 4) * 10 * SCALE;
-        fill(255, 200, 0, 60);
+        // Glow effect (enhanced during defeat)
+        let glowIntensity = this.defeated ? map(this.defeatTimer, 0, 180, 1.0, 3.0) : 1.0;
+        let glowSize = this.size * 1.8 * glowIntensity + sin(this.animFrame * 4) * 10 * SCALE;
+        fill(255, 200, 0, 60 * glowIntensity);
         noStroke();
         circle(0, 0, glowSize);
-        fill(255, 220, 50, 80);
+        fill(255, 220, 50, 80 * glowIntensity);
         circle(0, 0, glowSize * 0.8);
         
         // Sun rays
@@ -283,6 +370,11 @@ class Fireball extends Enemy {
         }
     }
     
+    checkCollision(carl) {
+        let d = dist(this.x, this.y, carl.x, carl.y);
+        return d < (this.size + carl.size) * 0.7;
+    }
+    
     draw() {
         push();
         translate(this.x, this.y - game.cameraY);
@@ -321,8 +413,15 @@ function createBossPlatforms() {
     
     let platformWidth = width * 0.18; // 18% of screen width - much wider
     
-    // Use scaleY for vertical spacing to ensure consistency across screen sizes
-    let verticalSpacing = 180 * scaleY; // Increased vertical spacing for more height variation
+    // Use height-based spacing to ensure exactly 3 platforms visible on left when at water level
+    // The visible area from water surface to top of screen should fit about 3 platform layers
+    // Water is at game.surfaceGoal, camera shows from cameraY to cameraY + height
+    // When Carl is at water level, camera is centered on him, so we see about height/2 above water
+    // We want 3 platforms in that space, so spacing = (height / 2) / 3 = height / 6
+    let verticalSpacing = height / 6;
+    
+    if (DEBUG) console.log('[PLATFORM SPACING] verticalSpacing:', verticalSpacing, '| height:', height, '| Water surface Y:', game.surfaceGoal);
+    if (DEBUG) console.log('[FIRST PLATFORMS] Height above water:', verticalSpacing * 1, 'and', verticalSpacing * 1.1);
     
     // Layer 1: Low platforms just above water - far left and far right with erratic positions
     platforms.push(new Platform(width * 0.05, game.surfaceGoal - verticalSpacing * 1, platformWidth, 25 * scaleY));
@@ -330,8 +429,9 @@ function createBossPlatforms() {
     
     // Layer 2: Mid-low platforms - more erratic horizontal placement
     platforms.push(new Platform(width * 0.12, game.surfaceGoal - verticalSpacing * 2.4, platformWidth, 25 * scaleY));
-    platforms.push(new Platform(width * 0.42, game.surfaceGoal - verticalSpacing * 2.0, platformWidth, 25 * scaleY));
     platforms.push(new Platform(width * 0.73, game.surfaceGoal - verticalSpacing * 2.6, platformWidth, 25 * scaleY));
+    
+    if (DEBUG) console.log('[RIGHT PLATFORMS] Layer 1 right (1.1x):', verticalSpacing * 1.1, '| Layer 2 right (2.6x):', verticalSpacing * 2.6, '| Difference:', verticalSpacing * (2.6 - 1.1));
     
     // Layer 3: Mid platforms - widely spaced, erratic heights
     platforms.push(new Platform(width * 0.08, game.surfaceGoal - verticalSpacing * 3.8, platformWidth, 25 * scaleY));
@@ -349,8 +449,7 @@ function createBossPlatforms() {
     platforms.push(new Platform(width * 0.45, game.surfaceGoal - verticalSpacing * 6.0, topWidth, 25 * scaleY));
     platforms.push(new Platform(width * 0.72, game.surfaceGoal - verticalSpacing * 6.8, topWidth, 25 * scaleY));
     
-    // Layer 6: Extra high platforms for variety - reaching even higher
-    platforms.push(new Platform(width * 0.25, game.surfaceGoal - verticalSpacing * 7.8, topWidth, 25 * scaleY));
+    // Layer 6: Extra high platform for variety
     platforms.push(new Platform(width * 0.58, game.surfaceGoal - verticalSpacing * 7.5, topWidth, 25 * scaleY));
     
     // Mark all boss platforms as permanent (don't despawn)

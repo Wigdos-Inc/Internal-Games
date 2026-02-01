@@ -92,14 +92,18 @@ const ENEMY_LIMITS = {
 // ========== CARL PHYSICS ==========
 const CARL_CONFIG = {
     get SIZE() { return 50 * SCALE; },
-    // Use average of SCALE and scaleX to improve responsiveness on thin screens
-    get ACCELERATION() { return 2.5 * ((SCALE + scaleX) / 2); },
+    // Horizontal acceleration uses scaleX for left-right movement
+    get ACCELERATION_X() { return 2.5 * scaleX; },
+    // Vertical acceleration uses scaleY for up-down movement
+    get ACCELERATION_Y() { return 2.5 * scaleY; },
     FRICTION: 0.92,
-    WATER_RESISTANCE: 0.97,
+    // Water resistance needs to scale - less resistance on smaller screens so Carl can build velocity
+    get WATER_RESISTANCE() { return 0.97 + (0.03 * (1 - scaleY)); }, // 0.97 at scaleY=1, approaches 1.0 as scaleY decreases
     get MAX_SPEED() { return 28 * scaleX; },
-    get JUMP_POWER() { return -25 * scaleY; }, // Increased from -18 to -25 for higher jumps
-    // Reduce gravity on smaller screens to make vertical movement easier
-    get GRAVITY() { return 0.25 * scaleY * Math.min(scaleY, 1.0); }, // Reduced from 0.3 to 0.25 for higher jumps
+    // Platform jump - now that platforms use height-based spacing, jump should scale simply with scaleY
+    get JUMP_POWER() { return -20 * scaleY; },
+    // Gravity should scale linearly with scaleY, not quadratically
+    get GRAVITY() { return 0.25 * scaleY; },
     
     // Powerups
     SPEED_BOOST_DURATION: 300,    // Frames

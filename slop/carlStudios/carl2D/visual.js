@@ -52,6 +52,51 @@ class Particle {
     }
 }
 
+// ========== BOSS EXPLOSION PARTICLE ==========
+class BossExplosionParticle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        let angle = random(TWO_PI);
+        let speed = random(2.5, 7);
+        this.vx = cos(angle) * speed;
+        this.vy = sin(angle) * speed;
+        this.life = 255;
+        this.size = random(10, 40) * SCALE;
+        this.toRemove = false;
+        // Supernova colors
+        let colors = [
+            color(255, 255, 0),   // Yellow
+            color(255, 150, 0),   // Orange
+            color(255, 50, 0),    // Red-orange
+            color(255, 255, 255), // White
+        ];
+        this.color = random(colors);
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        this.life -= 1.5;
+        if (this.life <= 0) this.toRemove = true;
+    }
+    
+    draw() {
+        push();
+        translate(0, -game.cameraY);
+        this.color.setAlpha(this.life);
+        fill(this.color);
+        noStroke();
+        circle(this.x, this.y, this.size);
+        // Glow effect
+        this.color.setAlpha(this.life * 0.3);
+        circle(this.x, this.y, this.size * 2);
+        pop();
+    }
+}
+
 // ========== BACKGROUND LAYERS ==========
 class BackgroundLayer {
     constructor(depth, color1, color2) {
