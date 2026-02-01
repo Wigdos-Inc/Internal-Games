@@ -7,16 +7,21 @@
     <link rel="icon" type="image/png" href="carl.png">
     
     <!-- p5.js Library -->
-    <script src="../../globalScripts/libraries/p5/p5.min.js"></script>
-    <script src="../../globalScripts/libraries/p5/p5.sound.min.js"></script>
+    <script src="../../../globalScripts/libraries/p5/p5.min.js"></script>
+    <script src="../../../globalScripts/libraries/p5/p5.sound.min.js"></script>
 
     <!-- Game Stylesheet -->
     <link rel="stylesheet" href="carl.css">
 </head>
 <body>
+    <!-- Interaction Prompt (for audio permissions) -->
+    <div id="interaction-prompt">
+        <p>Click or press any key to start</p>
+    </div>
+
     <!-- Intro Overlay -->
     <div id="intro-overlay">
-        <img id="intro-logo" src="../carlStudios/sloppyCarl.png" alt="Sloppy Carl Studios">
+        <img id="intro-logo" src="../sloppyCarl.png" alt="Sloppy Carl Studios">
     </div>
 
     <!-- Main Menu Overlay -->
@@ -27,7 +32,8 @@
             <img id="carl-character" src="carl.png" alt="Carl the Urgent Slug Urchin">
             <h1 id="game-title">CARL</h1>
             <p id="subtitle">The Urgent Slug Urchin</p>
-            <p id="version-credit">Beta v0.6.1 - Made by Claude Sonnet 4.5</p>
+            <p id="subtitle-2d">2D</p>
+            <p id="version-credit">Beta v0.7.1 - Made by Claude Sonnet 4.5</p>
             <button id="start-button">Start Adventure</button>
         </div>
         <div id="wigdos-credit">Wigdos Studios Inc.</div>
@@ -77,6 +83,19 @@
     </div>
 
     <script>
+        // ========== USER INTERACTION HANDLER ==========
+        function handleUserInteraction() {
+            const interactionPrompt = document.getElementById('interaction-prompt');
+            interactionPrompt.classList.add('hidden');
+            
+            // Remove event listeners
+            document.removeEventListener('click', handleUserInteraction);
+            document.removeEventListener('keydown', handleUserInteraction);
+            
+            // Now play the intro sequence
+            playIntroSequence();
+        }
+        
         // ========== INTRO SEQUENCE ==========
         function playIntroSequence() {
             const introOverlay = document.getElementById('intro-overlay');
@@ -192,7 +211,17 @@
 
         // Set up button listener
         document.addEventListener('DOMContentLoaded', function() {
-            playIntroSequence();
+            // Check if intro already played
+            if (sessionStorage.getItem('carlIntroPlayed')) {
+                // Skip interaction prompt and intro
+                document.getElementById('interaction-prompt').classList.add('hidden');
+                document.getElementById('intro-overlay').remove();
+            } else {
+                // Set up interaction listeners
+                document.addEventListener('click', handleUserInteraction);
+                document.addEventListener('keydown', handleUserInteraction);
+            }
+            
             document.getElementById('start-button').addEventListener('click', startGame);
             createBubbles();
         });

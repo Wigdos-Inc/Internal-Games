@@ -675,7 +675,7 @@ function loadSounds() {
     soundFormats('mp3', 'ogg', 'wav');
     
     // Load intro sounds
-    window.introSplatSound = loadSound('../carlStudios/splat.mp3',
+    window.introSplatSound = loadSound('../splat.mp3',
         () => {
             console.log('Intro splat sound loaded successfully');
             window.introSplatLoaded = true;
@@ -686,7 +686,7 @@ function loadSounds() {
         }
     );
     
-    window.introSloppySound = loadSound('../carlStudios/sloppyCarl.mp3',
+    window.introSloppySound = loadSound('../sloppyCarl.mp3',
         () => {
             console.log('Intro sloppy Carl sound loaded successfully');
             window.introSloppyLoaded = true;

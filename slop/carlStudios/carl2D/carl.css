@@ -14,6 +14,34 @@ html, body {
     color: white;
 }
 
+/* Interaction Prompt Styles */
+#interaction-prompt {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: black;
+    z-index: 500;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+#interaction-prompt p {
+    font-size: 1.5rem;
+    color: white;
+    opacity: 0.3;
+    text-align: center;
+    padding: 20px;
+    user-select: none;
+}
+
+#interaction-prompt.hidden {
+    display: none;
+}
+
 /* Intro Overlay Styles */
 #intro-overlay {
     position: fixed;
@@ -196,6 +224,15 @@ html, body {
     text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
     margin-bottom: 1vh;
     font-style: italic;
+}
+
+#subtitle-2d {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    color: #ffeb3b;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+    margin-bottom: 1vh;
+    font-style: italic;
+    font-weight: bold;
 }
 
 #version-credit {
