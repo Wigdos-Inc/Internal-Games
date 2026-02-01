@@ -61,9 +61,6 @@ const CreditsSystem = {
         
         // Calculate initial positions
         this.calculatePositions();
-        
-        // Clear session storage
-        sessionStorage.clear();
     },
     
     calculatePositions() {

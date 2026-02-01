@@ -101,16 +101,6 @@
             const introOverlay = document.getElementById('intro-overlay');
             const introLogo = document.getElementById('intro-logo');
             
-            // Check if intro has already been played this session
-            if (sessionStorage.getItem('carlIntroPlayed')) {
-                // Skip intro, remove overlay immediately
-                introOverlay.remove();
-                return;
-            }
-            
-            // Mark intro as played
-            sessionStorage.setItem('carlIntroPlayed', 'true');
-            
             // Sequence timeline
             setTimeout(() => {
                 // Step 2: Show logo with fade-in animation and play splat sound
@@ -211,16 +201,9 @@
 
         // Set up button listener
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if intro already played
-            if (sessionStorage.getItem('carlIntroPlayed')) {
-                // Skip interaction prompt and intro
-                document.getElementById('interaction-prompt').classList.add('hidden');
-                document.getElementById('intro-overlay').remove();
-            } else {
-                // Set up interaction listeners
-                document.addEventListener('click', handleUserInteraction);
-                document.addEventListener('keydown', handleUserInteraction);
-            }
+            // Set up interaction listeners
+            document.addEventListener('click', handleUserInteraction);
+            document.addEventListener('keydown', handleUserInteraction);
             
             document.getElementById('start-button').addEventListener('click', startGame);
             createBubbles();
