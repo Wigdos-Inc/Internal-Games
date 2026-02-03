@@ -35,6 +35,10 @@ let game = {
     sideCampingTimer: 0,  // Frames spent on screen sides
     hardModeActive: false,  // Flag for hard mode punishment
 
+    // Lives display hue animation
+    livesHueTimer: 0,  // Timer for lives display color effect
+    livesHueType: 'none',  // 'heal' or 'damage' or 'none'
+
     // Endgame cutscene (boss defeat)
     winSequenceActive: false,
     winSequenceTimer: 0,
@@ -76,6 +80,7 @@ class Carl {
         this.isInvincible = false; this.invincibleTimer = 0;
         this.jumping = false; // Track if Carl is in a jump
         this.wasAboveWater = false; // Track water surface crossing for logging
+        this.healEffectTimer = 0; // Visual indicator when healed
         this.tentacles = [];
         for (let i = 0; i < CARL_CONFIG.TENTACLE_COUNT; i++) {
             this.tentacles.push({ angle: (TWO_PI / CARL_CONFIG.TENTACLE_COUNT) * i, length: CARL_CONFIG.TENTACLE_LENGTH, wave: random(TWO_PI) });
@@ -276,9 +281,17 @@ class Carl {
             if (waterHealTimer >= 600) { // 10 seconds at 60 FPS
                 if (game.lives < GAME_CONFIG.STARTING_LIVES) {
                     game.lives++;
+                    this.healEffectTimer = 80; // Show heal effect for ~1.3 seconds
+                    game.livesHueTimer = 80;
+                    game.livesHueType = 'heal';
                 }
                 waterHealTimer = 0;
             }
+        }
+        
+        // Decrement heal effect timer
+        if (this.healEffectTimer > 0) {
+            this.healEffectTimer--;
         }
     }
     
@@ -330,6 +343,28 @@ class Carl {
         rotate(this.rotation);
         
         if (this.isInvincible && frameCount % 10 < 5) { pop(); return; }
+        
+        // Heal effect visual
+        if (this.healEffectTimer > 0) {
+            let healAlpha;
+            // Fade in quickly (first 20 frames), stay full (next 30 frames), fade out quickly (last 30 frames)
+            if (this.healEffectTimer > 60) {
+                // Fade in: 80-60 = first 20 frames
+                healAlpha = map(this.healEffectTimer, 80, 60, 0, 150);
+            } else if (this.healEffectTimer > 30) {
+                // Full brightness: 60-30 = middle 30 frames
+                healAlpha = 150;
+            } else {
+                // Fade out: last 30 frames
+                healAlpha = map(this.healEffectTimer, 30, 0, 150, 0);
+            }
+            fill(50, 255, 100, healAlpha);
+            noStroke();
+            circle(0, 0, this.size * 2.2);
+            // Inner brighter glow
+            fill(100, 255, 150, healAlpha * 0.6);
+            circle(0, 0, this.size * 1.8);
+        }
         
         // Speed boost visual effect
         if (this.boostTimer > 0) { 

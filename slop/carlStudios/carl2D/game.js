@@ -221,10 +221,10 @@ function draw() {
                     game.lives++;
                     waterHealTimer = 0;
                     sounds.play('powerup');
-                    // Healing particles
-                    for (let i = 0; i < 20; i++) {
-                        particles.push(new Particle(carl.x, carl.y, 'powerup'));
-                    }
+                    // Green heal glow effect on Carl
+                    carl.healEffectTimer = 80; // ~1.3 seconds
+                    game.livesHueTimer = 80;
+                    game.livesHueType = 'heal';
                 }
             } else {
                 // Reset timer when above water (re-entering water will start timer from 0)
@@ -587,6 +587,10 @@ function initGame() {
     game.sideCampingTimer = 0;
     game.hardModeActive = false;
     
+    // Reset lives hue effect
+    game.livesHueTimer = 0;
+    game.livesHueType = 'none';
+    
     let saved = localStorage.getItem('carlBestTime');
     if (saved) game.bestTime = parseFloat(saved);
     
@@ -651,7 +655,38 @@ function updateHUD() {
     
     document.getElementById('distance').textContent = timeString;
     document.getElementById('speed').textContent = carl.speedBoost.toFixed(1) + 'x';
-    document.getElementById('lives').textContent = game.lives;
+    
+    // Update lives with color animation
+    const livesElement = document.getElementById('lives');
+    livesElement.textContent = game.lives;
+    
+    // Apply color hue effect
+    if (game.livesHueTimer > 0) {
+        let hueAlpha;
+        // Same timing as Carl's heal effect: fade in 20 frames, stay 30 frames, fade out 30 frames
+        if (game.livesHueTimer > 60) {
+            hueAlpha = map(game.livesHueTimer, 80, 60, 0, 1);
+        } else if (game.livesHueTimer > 30) {
+            hueAlpha = 1;
+        } else {
+            hueAlpha = map(game.livesHueTimer, 30, 0, 1, 0);
+        }
+        
+        if (game.livesHueType === 'heal') {
+            livesElement.style.color = `rgba(50, 255, 100, ${hueAlpha})`;
+            livesElement.style.textShadow = `0 0 10px rgba(50, 255, 100, ${hueAlpha * 0.8}), 2px 2px 4px rgba(0, 0, 0, 0.8)`;
+        } else if (game.livesHueType === 'damage') {
+            livesElement.style.color = `rgba(255, 50, 50, ${hueAlpha})`;
+            livesElement.style.textShadow = `0 0 10px rgba(255, 50, 50, ${hueAlpha * 0.8}), 2px 2px 4px rgba(0, 0, 0, 0.8)`;
+        }
+        
+        game.livesHueTimer--;
+        if (game.livesHueTimer <= 0) {
+            game.livesHueType = 'none';
+            livesElement.style.color = '';
+            livesElement.style.textShadow = '';
+        }
+    }
     
     // Display best time
     if (game.bestTime !== null) {
