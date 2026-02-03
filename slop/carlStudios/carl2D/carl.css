@@ -239,6 +239,14 @@ html, body {
     font-size: clamp(0.7rem, 2vw, 1rem);
     color: rgba(255, 255, 255, 0.7);
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    margin-bottom: 0.5vh;
+    font-style: italic;
+}
+
+#dev-credit {
+    font-size: clamp(0.6rem, 1.8vw, 0.9rem);
+    color: rgba(255, 255, 255, 0.6);
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
     margin-bottom: 3vh;
     font-style: italic;
 }
@@ -303,6 +311,10 @@ html, body {
 
     #version-credit {
         font-size: clamp(0.8rem, 2.5vw, 1.2rem);
+    }
+
+    #dev-credit {
+        font-size: clamp(0.7rem, 2.2vw, 1rem);
     }
 
     #start-button {

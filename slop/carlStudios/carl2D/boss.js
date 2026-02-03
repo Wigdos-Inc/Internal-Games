@@ -161,10 +161,15 @@ class SunBoss extends Enemy {
         this.attackCooldown--;
         if (this.attackCooldown <= 0) {
             this.attack();
-            // Faster attacks in later phases
-            if (this.phase === 1) this.attackCooldown = 120;
-            else if (this.phase === 2) this.attackCooldown = 80;
-            else this.attackCooldown = 60;
+            // Hard mode: much faster attacks (40 frames = 0.67 seconds)
+            if (game.hardModeActive) {
+                this.attackCooldown = 40;
+            } else {
+                // Normal mode: faster attacks in later phases
+                if (this.phase === 1) this.attackCooldown = 120;
+                else if (this.phase === 2) this.attackCooldown = 80;
+                else this.attackCooldown = 60;
+            }
         }
         
         // Animate rays
@@ -175,26 +180,39 @@ class SunBoss extends Enemy {
     }
     
     attack() {
-        // Calculate fireball count based on phase and scaleX
+        // If hard mode is active, always shoot 10 fireballs
         let baseCount;
         let minCount;
-        if (this.phase === 1) {
-            baseCount = 2;
-            minCount = 1;
-        } else if (this.phase === 2) {
-            baseCount = 3;
-            minCount = 2;
+        
+        if (game.hardModeActive) {
+            // Hard mode: 10 fireballs for the entire fight
+            baseCount = 10;
+            minCount = 10;
         } else {
-            baseCount = 5;
-            minCount = 3;
+            // Normal mode: scale based on phase
+            if (this.phase === 1) {
+                baseCount = 2;
+                minCount = 1;
+            } else if (this.phase === 2) {
+                baseCount = 3;
+                minCount = 2;
+            } else {
+                baseCount = 5;
+                minCount = 3;
+            }
         }
         
-        // Scale fireball count with scaleX (reduce on narrow screens)
-        let fireballCount = Math.max(minCount, Math.round(baseCount * scaleX));
-        
-        // Reduce by 1 if Carl is underwater (minimum still applies)
-        if (typeof carl !== 'undefined' && carl.y > game.surfaceGoal) {
-            fireballCount = Math.max(minCount, fireballCount - 1);
+        // Scale fireball count with scaleX (reduce on narrow screens) - unless in hard mode
+        let fireballCount;
+        if (game.hardModeActive) {
+            fireballCount = 10; // Fixed count in hard mode
+        } else {
+            fireballCount = Math.max(minCount, Math.round(baseCount * scaleX));
+            
+            // Reduce by 1 if Carl is underwater (minimum still applies)
+            if (typeof carl !== 'undefined' && carl.y > game.surfaceGoal) {
+                fireballCount = Math.max(minCount, fireballCount - 1);
+            }
         }
         
         // Shoot fireballs
@@ -202,15 +220,16 @@ class SunBoss extends Enemy {
         
         if (fireballCount === 1) {
             // Single fireball aimed at Carl
-            enemies.push(new Fireball(this.x, this.y, baseAngle));
+            enemies.push(new Fireball(this.x, this.y, baseAngle, game.hardModeActive));
         } else {
             // Multiple fireballs in a spread
-            let spreadAngle = 0.25; // Angle between fireballs
+            // Hard mode: much tighter spread (0.12 vs 0.25)
+            let spreadAngle = game.hardModeActive ? 0.12 : 0.25;
             let halfCount = (fireballCount - 1) / 2;
             for (let i = 0; i < fireballCount; i++) {
                 let offset = (i - halfCount) * spreadAngle;
                 let angle = baseAngle + offset;
-                enemies.push(new Fireball(this.x, this.y, angle));
+                enemies.push(new Fireball(this.x, this.y, angle, game.hardModeActive));
             }
         }
     }
@@ -350,10 +369,11 @@ class SunBoss extends Enemy {
 
 // ========== FIREBALL PROJECTILE ==========
 class Fireball extends Enemy {
-    constructor(x, y, angle) {
+    constructor(x, y, angle, isHardMode = false) {
         super('fireball', x, y);
         this.size = 30 * SCALE;
-        this.speed = 8 * SCALE;
+        // Hard mode: 50% faster (12 vs 8)
+        this.speed = isHardMode ? 12 * SCALE : 8 * SCALE;
         this.vx = cos(angle) * this.speed;
         this.vy = sin(angle) * this.speed;
         this.life = 300; // Frames before despawning

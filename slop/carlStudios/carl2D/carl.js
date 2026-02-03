@@ -31,6 +31,10 @@ let game = {
     musicFading: false,  // Is main music fading out
     musicFadeAmount: 1.0,  // Current volume for fade
 
+    // Side-screen camping detection
+    sideCampingTimer: 0,  // Frames spent on screen sides
+    hardModeActive: false,  // Flag for hard mode punishment
+
     // Endgame cutscene (boss defeat)
     winSequenceActive: false,
     winSequenceTimer: 0,
@@ -199,6 +203,24 @@ class Carl {
         
         this.x += this.vx;
         this.y += this.vy;
+        
+        // Track side-screen camping during level section (not boss mode)
+        if (!game.bossMode && game.state === 'playing' && !game.hardModeActive) {
+            let sideZoneWidth = width * 0.15; // 15% of screen width on each side
+            let isOnSide = this.x < sideZoneWidth || this.x > width - sideZoneWidth;
+            
+            if (isOnSide) {
+                game.sideCampingTimer++;
+                // 5 seconds at 60 FPS = 300 frames
+                if (game.sideCampingTimer >= 300) {
+                    game.hardModeActive = true;
+                    if (DEBUG) console.log('[HARD MODE] Activated! Player camped on screen sides for 5+ seconds');
+                }
+            } else {
+                // Reset timer if not on side
+                game.sideCampingTimer = 0;
+            }
+        }
         
         if (this.x < -this.size) this.x = width + this.size;
         if (this.x > width + this.size) this.x = -this.size;

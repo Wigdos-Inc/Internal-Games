@@ -583,6 +583,10 @@ function initGame() {
     game.musicFading = false;
     game.musicFadeAmount = 1.0;
     
+    // Reset hard mode tracking
+    game.sideCampingTimer = 0;
+    game.hardModeActive = false;
+    
     let saved = localStorage.getItem('carlBestTime');
     if (saved) game.bestTime = parseFloat(saved);
     
